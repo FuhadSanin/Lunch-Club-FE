@@ -1,0 +1,203 @@
+/* Lunch Board design tokens.
+   Type, surfaces, radii and elevation follow Vercel's Geist system (ink on near-white, hairline rings,
+   stacked shadows, 600-weight display with tight tracking). Motion follows Apple: long, soft
+   ease-outs and springs, transform and opacity only. Components are shadcn/ui (src/components/ui);
+   their semantic colours (background, primary, muted...) are mapped onto these tokens below. */
+
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+
+@font-face {
+  font-family: 'Geist';
+  src: url('/fonts/Geist-Variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Geist Mono';
+  src: url('/fonts/GeistMono-Variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Light and dark values. Components only use the token names below, so the theme flips here. */
+:root {
+  --ink: #171717;
+  --on-ink: #ffffff;
+  --body: #4d4d4d;
+  --mute: #6b6b6b;
+  --canvas: #ffffff;
+  --soft: #fafafa;
+  --soft-2: #f2f2f2;
+  --line: #ebebeb;
+  --line-strong: #d4d4d4;
+  --brand: #0070f3;
+  --brand-deep: #0761d1;
+  --brand-soft: #e8f1fe;
+  --veg: #1f7a3a;
+  --nonveg: #b42318;
+  --ok: #0f7b3e;
+  --ok-soft: #e3f6ea;
+  --warn: #8a4b08;
+  --warn-soft: #fff4dc;
+  --bad: #c50000;
+  --bad-soft: #fde8e8;
+  --band: #171717; /* the always-dark section on the landing page */
+  --popover-bg: #ffffff;
+  --raised: #ffffff; /* a surface lifted above its track: selected pills */
+  --edge: rgb(0 0 0 / 0.08);
+  --halo: rgb(0 0 0 / 0.08);
+  --drop: rgb(0 0 0 / 0.04);
+  --drop-deep: rgb(0 0 0 / 0.1);
+  --radius: 0.5rem;
+}
+
+.dark {
+  color-scheme: dark;
+  --ink: #ededed;
+  --on-ink: #0a0a0a;
+  --body: #a1a1a1;
+  --mute: #8f8f8f;
+  --canvas: #0a0a0a;
+  --soft: #111111;
+  --soft-2: #1c1c1c;
+  --line: #262626;
+  --line-strong: #3a3a3a;
+  --brand: #3291ff;
+  --brand-deep: #52a8ff;
+  --brand-soft: #0f2340;
+  --veg: #3fb26a;
+  --nonveg: #f0614e;
+  --ok: #45c97a;
+  --ok-soft: #0e2a1a;
+  --warn: #f2b14c;
+  --warn-soft: #2c1f08;
+  --bad: #ff6166;
+  --bad-soft: #3a1416;
+  --band: #141414;
+  --popover-bg: #161616;
+  --raised: #2e2e2e;
+  --edge: rgb(255 255 255 / 0.1);
+  --halo: rgb(255 255 255 / 0.12);
+  --drop: rgb(0 0 0 / 0.4);
+  --drop-deep: rgb(0 0 0 / 0.6);
+}
+
+@theme inline {
+  --font-sans: 'Geist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-heading: var(--font-sans);
+
+  /* Lunch Board tokens */
+  --color-ink: var(--ink);
+  --color-on-ink: var(--on-ink);
+  --color-body: var(--body);
+  --color-mute: var(--mute);
+  --color-canvas: var(--canvas);
+  --color-soft: var(--soft);
+  --color-soft-2: var(--soft-2);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-brand: var(--brand);
+  --color-brand-deep: var(--brand-deep);
+  --color-brand-soft: var(--brand-soft);
+  --color-veg: var(--veg);
+  --color-nonveg: var(--nonveg);
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-bad: var(--bad);
+  --color-bad-soft: var(--bad-soft);
+  --color-band: var(--band);
+  --color-raised: var(--raised);
+
+  /* shadcn/ui semantic colours, mapped onto the tokens above */
+  --color-background: var(--canvas);
+  --color-foreground: var(--ink);
+  --color-card: var(--canvas);
+  --color-card-foreground: var(--ink);
+  --color-popover: var(--popover-bg);
+  --color-popover-foreground: var(--ink);
+  --color-primary: var(--ink);
+  --color-primary-foreground: var(--on-ink);
+  --color-secondary: var(--soft-2);
+  --color-secondary-foreground: var(--ink);
+  --color-muted: var(--soft-2);
+  --color-muted-foreground: var(--mute);
+  --color-accent: var(--soft-2);
+  --color-accent-foreground: var(--ink);
+  --color-destructive: var(--bad);
+  --color-border: var(--line);
+  --color-input: var(--line-strong);
+  --color-ring: var(--brand);
+
+  /* --radius is 0.5rem, so these equal Tailwind's own sm / md / lg / xl */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 16px);
+
+  --ease-apple: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --shadow-ring: 0 0 0 1px var(--edge);
+  --shadow-card: 0 0 0 1px var(--edge), 0 1px 1px var(--drop), 0 2px 2px var(--drop);
+  --shadow-float: 0 0 0 1px var(--edge), 0 2px 2px var(--drop), 0 8px 16px -4px var(--drop);
+  --shadow-modal: 0 0 0 1px var(--edge), 0 1px 1px var(--drop), 0 8px 16px -4px var(--drop), 0 24px 32px -8px var(--drop-deep);
+
+  --animate-pulse-dot: pulse-dot 1.6s var(--ease-apple) infinite;
+  @keyframes pulse-dot {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(0.6); opacity: 0.5; }
+  }
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+    scroll-padding-top: 80px;
+    -webkit-tap-highlight-color: rgb(0 112 243 / 0.12);
+  }
+  body {
+    @apply bg-background font-sans text-[15px] leading-6 text-foreground antialiased;
+    font-feature-settings: 'ss01', 'cv11';
+  }
+  h1, h2, h3 { text-wrap: balance; }
+  /* A grid's default single track may shrink below its content, so long dish names truncate
+     instead of widening the card. Any grid-cols-* utility overrides this. */
+  .grid { grid-template-columns: minmax(0, 1fr); }
+  p { text-wrap: pretty; }
+  ::selection { background: var(--color-ink); color: var(--color-on-ink); }
+  :focus-visible { outline: 2px solid var(--color-brand); outline-offset: 2px; border-radius: 6px; }
+  button, a, input, select, textarea, label { touch-action: manipulation; }
+  button:not(:disabled), [role='button'], label[for] { cursor: pointer; }
+  * { @apply border-border; }
+}
+
+@utility num {
+  font-variant-numeric: tabular-nums;
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: 0ms !important; transition-duration: 0ms !important; }
+}
+
+/* People's tints: pale with dark letters in light, deep with pale letters in dark. */
+.avatar-tint { background: hsl(var(--h) 60% 92%); color: hsl(var(--h) 45% 26%); }
+.dark .avatar-tint { background: hsl(var(--h) 30% 20%); color: hsl(var(--h) 65% 82%); }
+
+/* Theme switch: the new theme opens as a circle from the toggle (see components/theme.tsx). */
+::view-transition-old(root),
+::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
