@@ -1,0 +1,420 @@
+// Runs the signed-in app on the Django API. When /api/me answers with a company, the screens get
+// today's lunch, the team and their picks from the API through TanStack Query, and their actions
+// become API calls. Without an answer (no API running, or not signed in) they keep the demo data.
+// The landing page always uses the demo: it sits outside this provider.
+
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useIsMutating } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import {
+  useBoard, useConfirm, useLock, useReopen, useUnlock, useSkipPerson, useLunches, useMe, useMembers, useOrderDelivered, useSavePicks, useSkip, useStartLunch,
+  useAddAddress, useCompanySettings, useInvitePeople, useInvites, useRemoveAddress, useUpdateCompany,
+} from '@/api/queries';
+import { ApiError } from '@/api/client';
+import { isDemoPreview } from '@/auth';
+import type { ApiBoard, ApiCompanySettings, ApiItem, ApiItemInput, ApiLunch, ApiMe, ApiPermission, ApiPerson } from '@/api/types';
+import type { Org } from '@/data/demo';
+
+const HOST_PERMISSIONS: ApiPermission[] = ['session_create', 'session_update', 'session_delete', 'review_create', 'order_update'];
+import { DEMO_SESSION, hueOf, rememberPeople, type Person, type Pick, type Session, type SessionStatus } from '@/data/demo';
+import { allDishes, dishById, knownRestaurants, rememberStubs, restaurantById, slug, type Restaurant } from '@/data/menus';
+import { StoreContext, useStore, type Action, type Store } from '@/store';
+import { SetUpCompany } from '@/screens/SetUpCompany';
+import { useHashRoute } from '@/ui';
+
+const localDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const hhmm = (d: Date) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+
+// Today at HH:MM, as the API wants it. A time already past means tomorrow.
+const cutoffAt = (time: string) => {
+  const d = new Date();
+  d.setHours(Number(time.slice(0, 2)), Number(time.slice(3, 5)), 0, 0);
+  if (d.getTime() <= Date.now()) d.setDate(d.getDate() + 1);
+  return d.toISOString();
+};
+
+const STATUS: Record<ApiBoard['status'], SessionStatus> = {
+  open: 'open',
+  locked: 'locked',
+  confirmed: 'placing',
+  placed: 'placed',
+  delivered: 'delivered',
+  cancelled: 'delivered', // never shown: a called-off lunch is not today's lunch
+};
+
+// Today's lunch: the running one (one runs at a time). Once its food arrives or it is called off, it is
+// closed, and today's screens offer to start the next.
+const RUNNING = new Set<ApiLunch['status']>(['open', 'locked', 'confirmed', 'placed']);
+// A lunch whose food has arrived stays current while the host hands it out, until they complete it
+// (the newest lunch only, and within a day, so an old delivered lunch never comes back).
+const currentLunch = (lunches: ApiLunch[] = [], extras: Record<string, Extras>) =>
+  lunches.find((l) => RUNNING.has(l.status)) ??
+  lunches.slice(0, 1).find(
+    (l) => l.status === 'delivered' && !extras[l.id]?.completed && Date.now() - Date.parse(l.cutoff_at) < 864e5,
+  );
+
+const toPerson = (p: ApiPerson & { email?: string }): Person => ({ id: p.id, name: p.name, email: p.email ?? '', hue: hueOf(p.id) });
+
+// Picks store a restaurant and dish by name. Find the dish in a loaded menu, or make a stand-in so the
+// board can still show it.
+function dishIdFor(item: ApiItem, stubs: Map<string, Restaurant>): string {
+  const rname = item.restaurant_name.toLowerCase();
+  const dname = item.dish_name.toLowerCase();
+  for (const r of knownRestaurants()) {
+    if (r.name.toLowerCase() !== rname) continue;
+    const dish = allDishes(r).find((d) => d.name.toLowerCase() === dname);
+    if (dish) return dish.id;
+  }
+  const rid = `api-${slug(item.restaurant_name)}`;
+  const id = `${rid}:${slug(item.dish_name)}`;
+  const stub = stubs.get(rid) ?? { id: rid, name: item.restaurant_name, categories: [{ name: 'Picked', dishes: [] }] };
+  if (!allDishes(stub).some((d) => d.id === id))
+    stub.categories[0].dishes.push({ id, name: item.dish_name, price: item.price_paise / 100, veg: false });
+  stubs.set(rid, stub);
+  return id;
+}
+
+function picksFrom(board: ApiBoard): Record<string, Pick> {
+  const stubs = new Map<string, Restaurant>();
+  const picks: Record<string, Pick> = {};
+  for (const item of board.items) {
+    const pick = (picks[item.user.id] ??= { items: [], note: '', skipped: false, updatedAt: '' });
+    pick.items.push({ dishId: dishIdFor(item, stubs), qty: item.quantity });
+    pick.note ||= item.note;
+  }
+  for (const p of board.skipped) picks[p.id] = { items: [], note: '', skipped: true, updatedAt: '' };
+  for (const p of board.completed ?? []) if (picks[p.id]) picks[p.id].done = true;
+  rememberStubs([...stubs.values()]);
+  return picks;
+}
+
+// What the API doesn't keep yet, kept in this browser per lunch: the restaurants it offers and the host's
+// review marks.
+type Extras = {
+  restaurantIds?: string[];
+  checked?: Record<string, boolean>;
+  handedOut?: Record<string, boolean>;
+  arrived?: Record<string, boolean>; // restaurant id → collected
+  completed?: boolean; // the host closed the lunch
+};
+const EXTRAS_KEY = 'lunchboard-live-v1';
+function useExtras() {
+  const [all, setAll] = useState<Record<string, Extras>>(() => {
+    try {
+      return JSON.parse(window.localStorage.getItem(EXTRAS_KEY) ?? '{}');
+    } catch {
+      return {};
+    }
+  });
+  const update = (lunchId: string, change: (e: Extras) => Extras) =>
+    setAll((cur) => {
+      const next = { ...cur, [lunchId]: change(cur[lunchId] ?? {}) };
+      try {
+        window.localStorage.setItem(EXTRAS_KEY, JSON.stringify(next));
+      } catch {
+        /* storage unavailable: marks last until the page closes */
+      }
+      return next;
+    });
+  return [all, update] as const;
+}
+
+function useClock() {
+  const [now, setNow] = useState(() => hhmm(new Date()));
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(hhmm(new Date())), 15_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  return now;
+}
+
+function isServerDown(error: unknown) {
+  return error instanceof ApiError && (error.status === 0 || error.status >= 500);
+}
+
+function ServerDown({ error, onRetry }: { error: Error; onRetry: () => void }) {
+  return (
+    <div role="alert" className="grid min-h-dvh place-items-center bg-canvas p-6 text-sm">
+      <div className="grid max-w-md gap-3 text-center">
+        <h1 className="text-lg font-semibold">Can't reach the lunch server</h1>
+        <p className="text-muted-foreground">{error.message}</p>
+        <p className="text-muted-foreground">
+          Start the API with <code className="font-mono">docker compose up -d api</code> (or <code className="font-mono">make bot-api</code> to
+          use the order bot), then try again. Nothing here is demo data.
+        </p>
+        <button type="button" onClick={onRetry} className="mx-auto rounded-full bg-foreground px-4 py-2 text-background">
+          Try again
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function Connecting() {
+  return (
+    <div role="status" className="grid min-h-dvh place-items-center bg-canvas text-sm text-muted-foreground">
+      <span className="flex items-center gap-3">
+        <span className="size-4 animate-spin rounded-full border-2 border-input border-t-foreground" aria-hidden="true" />
+        Loading today's lunch…
+      </span>
+    </div>
+  );
+}
+
+export function LiveStore({ children }: { children: ReactNode }) {
+  const me = useMe();
+  if (me.isPending) return <Connecting />;
+  // Not signed in (or not allowed yet) goes on to the sign-in screens. But when the API itself can't
+  // answer, say so instead of quietly showing demo data that looks like the real thing.
+  if (me.isError && isServerDown(me.error) && !isDemoPreview()) return <ServerDown error={me.error} onRetry={() => me.refetch()} />;
+  if (me.isError) return <>{children}</>; // no API to talk to: the demo
+  if (!me.data.org) return <SetUpCompany me={me.data} />;
+  return <LiveBridge me={me.data}>{children}</LiveBridge>;
+}
+
+function LiveBridge({ me, children }: { me: ApiMe; children: ReactNode }) {
+  const demo = useStore();
+  // The whole team is loaded only where a page shows it: who has picked and who hasn't (Today's lunch,
+  // Pick my lunch, Review and order) and the member list (Settings). Start a lunch doesn't need it.
+  const [route] = useHashRoute();
+  const members = useMembers(route !== '/new');
+  const lunches = useLunches();
+  const [extras, updateExtras] = useExtras();
+  const lunch = currentLunch(lunches.data, extras);
+  const board = useBoard(lunch?.id);
+  const now = useClock();
+  const busy = useIsMutating() > 0;
+
+  const person: ApiPerson = { id: me.id, name: me.name };
+  const savePicks = useSavePicks(lunch?.id, person);
+  const skip = useSkip(lunch?.id, person);
+  const lock = useLock();
+  const confirm = useConfirm();
+  const delivered = useOrderDelivered();
+  const start = useStartLunch();
+  const reopen = useReopen();
+  const unlock = useUnlock();
+  const skipPerson = useSkipPerson();
+  const settings = useCompanySettings();
+  const invites = useInvites(me.permissions.includes('member_read'));
+  const updateCompany = useUpdateCompany();
+  const addAddress = useAddAddress();
+  const removeAddress = useRemoveAddress();
+  const invitePeople = useInvitePeople();
+
+  const mine = lunch ? extras[lunch.id] : undefined;
+
+  const people = useMemo(() => {
+    const list = (members.data ?? [me]).map(toPerson);
+    for (const p of [...(board.data?.items.map((i) => i.user) ?? []), ...(board.data?.skipped ?? [])])
+      if (!list.some((x) => x.id === p.id)) list.push(toPerson(p));
+    rememberPeople(list);
+    return list;
+  }, [members.data, board.data, me]);
+
+  const picks = useMemo(() => (board.data ? picksFrom(board.data) : {}), [board.data]);
+
+  const session = useMemo<Session>(() => {
+    const b = board.data;
+    if (!b) return { ...DEMO_SESSION, id: 'none', restaurantIds: [], bot: [], handedOut: {}, checked: {} };
+    const placed = b.orders.map((o) => o.swiggy_order_id).filter(Boolean);
+    // Only this browser knows which restaurants a lunch it started offers. Elsewhere this stays empty,
+    // and Pick my lunch loads the restaurants near the office itself, so other pages make no catalog call.
+    const offered = mine?.restaurantIds ?? [];
+    return {
+      id: b.id,
+      title: 'Lunch',
+      date: localDate(new Date(b.cutoff_at)),
+      cutoff: hhmm(new Date(b.cutoff_at)),
+      address: b.delivery_address,
+      restaurantIds: offered,
+      hostId: b.host.id,
+      status: STATUS[b.status],
+      orderRef: placed.length ? placed.map((id) => `#${id}`).join(', ') : null,
+      bot: [],
+      handedOut: mine?.handedOut ?? {},
+      checked: mine?.checked ?? {},
+      arrived: mine?.arrived ?? {},
+      completed: !!mine?.completed,
+    };
+  }, [board.data, mine]);
+
+  const fail = (what: string) => (e: Error) => toast.error(what, { description: e.message });
+
+  const dispatch = (a: Action): void | Promise<unknown> => {
+    const id = lunch?.id;
+    switch (a.type) {
+      case 'savePick':
+      case 'completePick': {
+        const items: ApiItemInput[] = a.items.flatMap((l) => {
+          const found = dishById(l.dishId);
+          if (!found) return [];
+          return [{
+            restaurant_name: found.restaurant.name,
+            restaurant_id: /^\d+$/.test(found.restaurant.id) ? found.restaurant.id : '',
+            dish_name: found.dish.name,
+            quantity: l.qty,
+            price_paise: Math.round(found.dish.price * 100),
+            note: a.note.slice(0, 200),
+          }];
+        });
+        if (a.type === 'savePick') return void savePicks.mutate({ items, complete: false }, { onError: fail("Couldn't save your pick") });
+        // Completing: the cart goes on the board and becomes final in one request.
+        if (!id) return;
+        return savePicks
+          .mutateAsync({ items, complete: true })
+          .catch((e: Error) => {
+            fail("Couldn't complete your order")(e);
+            throw e;
+          });
+      }
+      case 'reopenPick':
+        if (!id) return;
+        return reopen.mutateAsync({ lunchId: id, userId: a.userId }).catch((e: Error) => {
+          fail("Couldn't reopen their order")(e);
+          throw e;
+        });
+      case 'skip':
+        // Your own skip, or the host marking someone else as skipping.
+        return (a.userId === me.id ? skip.mutateAsync() : id ? skipPerson.mutateAsync({ lunchId: id, userId: a.userId }) : Promise.resolve()).catch(
+          (e: Error) => {
+            fail(a.userId === me.id ? "Couldn't skip this lunch" : "Couldn't mark them as skipping")(e);
+            throw e;
+          },
+        );
+      case 'lock':
+        if (!id) return;
+        return lock.mutateAsync(id).catch((e: Error) => {
+          fail("Couldn't lock the picks")(e);
+          throw e;
+        });
+      case 'reopen':
+        if (!id) return;
+        return unlock.mutateAsync(id).catch((e: Error) => {
+          fail("Couldn't unlock the picks")(e);
+          throw e;
+        });
+      case 'startPlacing':
+        if (!id) return;
+        return confirm.mutateAsync(id).catch((e: Error) => {
+          fail("Couldn't confirm the cart")(e);
+          throw e;
+        });
+      case 'delivered':
+        for (const o of board.data?.orders.filter((o) => o.status === 'placed') ?? [])
+          delivered.mutate(o.id, { onError: fail("Couldn't mark the food as arrived") });
+        return;
+      case 'newSession':
+        return start
+          .mutateAsync({ cutoff_at: cutoffAt(a.cutoff), delivery_address: a.address })
+          .then((b) => updateExtras(b.id, (e) => ({ ...e, restaurantIds: a.restaurantIds })))
+          .catch((e: Error) => {
+            fail("Couldn't start the lunch")(e);
+            throw e;
+          });
+      case 'check':
+        return void (id && updateExtras(id, (e) => ({ ...e, checked: { ...e.checked, [a.key]: a.done } })));
+      case 'handOut':
+        return void (id && updateExtras(id, (e) => ({ ...e, handedOut: { ...e.handedOut, [a.userId]: a.done } })));
+      case 'arrive': {
+        if (!id) return;
+        const arrived = { ...mine?.arrived, [a.restaurantId]: a.done };
+        updateExtras(id, (e) => ({ ...e, arrived }));
+        // A Swiggy order is delivered once every restaurant in it has arrived.
+        const names = new Set(Object.entries(arrived).filter(([, v]) => v).map(([rid]) => restaurantById(rid)?.name));
+        for (const o of board.data?.orders ?? [])
+          if (o.status === 'placed' && o.restaurants.every((n) => names.has(n)))
+            delivered.mutate(o.id, { onError: fail("Couldn't mark the order as arrived") });
+        return;
+      }
+      case 'finishLunch':
+        return void (id && updateExtras(id, (e) => ({ ...e, completed: true })));
+      case 'setRole':
+      case 'botStep':
+      case 'placed':
+        return; // the API decides these
+      case 'updateOrg':
+        return saveOrg(a.org);
+      default:
+        return demo.dispatch(a); // sign in and out, theme and the like
+    }
+  };
+
+  // Settings change the company on the API: fields in one PATCH, addresses and invites by what was
+  // added or removed. The email domain decides who can join, so it never changes from here.
+  const failed = (error: unknown) =>
+    toast.error("Couldn't save that", { description: error instanceof ApiError ? error.message : 'Try again.' });
+  const saveOrg = (change: Partial<Org>) => {
+    const s = settings.data;
+    if (!s) return;
+    const patch: Parameters<typeof updateCompany.mutate>[0] = {
+      ...(change.name !== undefined && { name: change.name }),
+      ...(change.team !== undefined && { team_name: change.team }),
+      ...(change.autoJoin !== undefined && { auto_join: change.autoJoin }),
+      ...(change.restaurantMode !== undefined && { restaurant_mode: change.restaurantMode }),
+      ...(change.radiusKm !== undefined && { radius_km: change.radiusKm }),
+      ...(change.office && { office_lat: change.office.lat, office_lng: change.office.lng }),
+    };
+    if (Object.keys(patch).length) updateCompany.mutate(patch, { onError: failed });
+    if (change.addresses) {
+      const now = new Set(change.addresses);
+      for (const a of change.addresses.filter((x) => !s.addresses.some((y) => y.address === x))) addAddress.mutate(a, { onError: failed });
+      for (const a of s.addresses.filter((y) => !now.has(y.address))) removeAddress.mutate(a.id, { onError: failed });
+    }
+    if (change.invites) {
+      const invited = new Set(invites.data?.map((i) => i.email));
+      const added = change.invites.filter((e) => !invited.has(e.toLowerCase()));
+      if (added.length) invitePeople.mutate(added, { onError: failed });
+    }
+  };
+
+  // isLoading, not isPending: a query switched off for this page is pending forever but never loading.
+  if (members.isLoading || lunches.isPending || settings.isPending || (lunch && board.isPending)) return <Connecting />;
+
+  // The screens have two views: someone who runs lunches sees the host's, everyone else the member's.
+  const can = (p: ApiPermission) => me.permissions.includes(p);
+  const runsLunches = HOST_PERMISSIONS.some(can);
+
+  const value: Store = {
+    ...demo,
+    state: {
+      ...demo.state,
+      role: runsLunches ? 'host' : 'member',
+      session,
+      picks,
+      org: settings.data
+        ? orgFrom(settings.data, invites.data?.filter((i) => !i.accepted).map((i) => i.email) ?? [], demo.state.org)
+        : { ...demo.state.org, name: me.org!.name, team: me.org!.name, emailDomain: me.org!.email_domain },
+    },
+    dispatch,
+    people,
+    meId: me.id,
+    now,
+    live: {
+      lunchId: lunch?.id ?? null,
+      canHost: can('session_create'),
+      canReopen: can('session_update'),
+      canManageMembers: can('member_update'),
+      orders: board.data?.orders ?? [],
+      busy,
+    },
+  };
+  return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
+}
+
+// The company as the screens know it, from GET /api/company/settings. Without an office location yet,
+// restaurants are still looked up from the demo's.
+function orgFrom(s: ApiCompanySettings, invites: string[], fallback: Org): Org {
+  return {
+    ...fallback,
+    name: s.name,
+    team: s.team_name || s.name,
+    emailDomain: s.email_domain,
+    autoJoin: s.auto_join,
+    restaurantMode: s.restaurant_mode,
+    radiusKm: s.radius_km,
+    addresses: s.addresses.map((a) => a.address),
+    invites,
+    office: s.office_lat !== null && s.office_lng !== null ? { lat: s.office_lat, lng: s.office_lng } : fallback.office,
+  };
+}

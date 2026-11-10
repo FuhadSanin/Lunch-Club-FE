@@ -2,6 +2,7 @@ import { AnimatePresence, motion, useInView, useReducedMotion, useScroll, useTra
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ME_ID, PEOPLE, type PickLine } from '@/data/demo';
 import { allDishes, dishById, restaurantById, type Dish } from '@/data/menus';
+import { useSignIn } from '@/auth';
 import { offeredRestaurants, summarise, useStore } from '@/store';
 import { FoodPhoto, LiveDot, Mark, rupees, VegMark } from '@/ui';
 import { Button } from '@/components/ui/button';
@@ -30,6 +31,7 @@ export default function LiveDemo() {
   const active = useInView(ref, { margin: '0px 0px -20% 0px' });
 
   const { state, dispatch } = useStore();
+  const signIn = useSignIn();
   const celebrate = useCelebrate();
   const { fly, layer } = useFlyToCart();
   const { shown, latest } = useLiveFeed(active);
@@ -58,13 +60,14 @@ export default function LiveDemo() {
   const less = (id: string) =>
     setTray((cur) => cur.flatMap((l) => (l.dishId !== id ? [l] : l.qty > 1 ? [{ ...l, qty: l.qty - 1 }] : [])));
 
-  const putOnBoard = (e: React.MouseEvent<HTMLButtonElement>) => {
+  // The tray is a taste of the board; putting it there means signing in to the real one.
+  const putOnBoard = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    const origin = originOf(e);
+    if (!(await signIn())) return;
     if (open && tray.length) {
       dispatch({ type: 'savePick', userId: ME_ID, items: tray, note: '' });
-      celebrate({ ...originOf(e), title: 'Pick saved', sub: `${count} ${count === 1 ? 'dish' : 'dishes'}, ${rupees(total)}. You're on today's board.` });
+      celebrate({ ...origin, title: 'Pick saved', sub: `${count} ${count === 1 ? 'dish' : 'dishes'}, ${rupees(total)}. You're on today's board.` });
     }
-    dispatch({ type: 'signIn' });
-    window.location.hash = '/';
   };
 
   return (
@@ -103,7 +106,7 @@ export default function LiveDemo() {
           </div>
 
           <div className="grid lg:h-[640px] lg:grid-cols-[minmax(0,1fr)_380px]">
-            <div className="no-scrollbar min-h-0 min-w-0 overflow-y-auto overscroll-contain p-5 sm:p-7">
+            <div className="no-scrollbar min-h-0 min-w-0 overflow-y-auto p-5 sm:p-7">
               <Tabs value={tab} onValueChange={setTab} className="gap-0">
                 <PillTabsList
                   label="Today's restaurants"
@@ -152,7 +155,7 @@ export default function LiveDemo() {
                   <span className="text-sm font-semibold">One Swiggy cart</span>
                   <span className="text-[13px] text-muted-foreground num">{cart.cart.length} {cart.cart.length === 1 ? 'restaurant' : 'restaurants'}</span>
                 </div>
-                <ul className="-mx-1 mt-3 grid max-h-[184px] gap-2 overflow-y-auto overscroll-contain p-1">
+                <ul className="-mx-1 mt-3 grid max-h-[184px] gap-2 overflow-y-auto p-1">
                   <AnimatePresence initial={false}>
                   {cart.cart.map((g) => (
                       <motion.li
@@ -200,7 +203,7 @@ export default function LiveDemo() {
                   <span className="text-sm font-semibold">Your tray</span>
                   <Badge variant={count ? 'default' : 'secondary'}>{count} {count === 1 ? 'dish' : 'dishes'}</Badge>
                 </div>
-                <ul className="mt-3 flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto overscroll-contain" aria-live="polite">
+                <ul className="mt-3 flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto" aria-live="polite">
                   <AnimatePresence initial={false}>
                     {tray.map((l) => {
                       const f = dishById(l.dishId)!;

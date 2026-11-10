@@ -1,5 +1,6 @@
 import { motion, useMotionValueEvent, useScroll } from 'motion/react';
 import { useState, type ReactNode } from 'react';
+import { useSignIn } from '../auth';
 import { useLunch, useStore } from '../store';
 import { dishById } from '../data/menus';
 import { Avatar, FoodPhoto, firstName, GoogleG, Mark, rupees } from '../ui';
@@ -22,11 +23,8 @@ const LINKS = [
 ];
 
 export default function Landing() {
-  const { dispatch } = useStore();
-  const start = () => {
-    dispatch({ type: 'signIn' });
-    window.location.hash = '/';
-  };
+  const signIn = useSignIn();
+  const start = () => void signIn();
 
   return (
     <div className="min-h-dvh overflow-x-clip bg-canvas text-base leading-[1.6]">

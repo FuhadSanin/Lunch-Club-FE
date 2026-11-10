@@ -11,32 +11,58 @@ import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle }
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { TimePicker } from '@/components/ui/time-picker';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { PillTabsList } from '@/components/ui/segmented';
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
-import { PageTitle } from '@/components/PageTitle';
+import { StepPage } from '@/components/steps';
+import { useCelebrate } from '@/components/celebrate';
+import { CloseLunchDialog, ExistingLunches, useRunningLunches } from './ExistingLunches';
+import type { ApiLunch } from '@/api/types';
 import { cn, easeOut, spring } from '@/lib/cn';
 
 const km = (n: number) => `${n.toLocaleString('en-IN', { maximumFractionDigits: 1 })} km`;
-// Cutoffs every 15 minutes over the lunch hours, shown as "12:30 pm".
-const CUTOFFS = Array.from({ length: 15 }, (_, i) => {
-  const m = 11 * 60 + i * 15;
-  return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
-});
-const clock = (t: string) => {
-  const [h, m] = t.split(':').map(Number);
-  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'am' : 'pm'}`;
+// Cutoffs: every quarter hour from just after now until a day later (the API takes up to 24 hours).
+// Times before now aren't offered; a time earlier in the day than now means tomorrow.
+const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+const hhmm = (m: number) => `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+const cutoffsFrom = (now: string) => {
+  const first = Math.ceil((toMin(now) + 10) / 15) * 15;
+  return Array.from({ length: 92 }, (_, i) => hhmm((first + i * 15) % 1440));
+};
+// "Office, 4th floor, Infopark Phase 2, Kakkanad" → "Office, 4th floor" over "Infopark Phase 2, Kakkanad".
+const splitAddress = (a: string) => {
+  const parts = a.split(', ');
+  return parts.length > 2 ? [parts.slice(0, 2).join(', '), parts.slice(2).join(', ')] : [a, ''];
 };
 const meta = (r: Restaurant) =>
   [r.open === false && 'Closed now', r.cuisines?.join(', '), r.eta].filter(Boolean).join(' · ') || `${allDishes(r).length} dishes from past team orders`;
 
 export default function NewLunch() {
-  const { state, dispatch } = useStore();
+  const { state, dispatch, now: DEMO_NOW, live } = useStore();
+  const [sending, setSending] = useState(false);
+  const celebrate = useCelebrate();
+  // One lunch at a time: while one is running, the form waits until it is closed.
+  const { running } = useRunningLunches();
+  const hasActive = live ? !!live.lunchId || running.length > 0 : !state.session.completed;
+  const [tab, setTab] = useState<'active' | 'history'>('active');
+  // Closing: on the API through the close dialog (call off, or mark arrived); the demo just ends its lunch.
+  const close = (l: ApiLunch) => {
+    if (live) setClosing(l);
+    else {
+      dispatch({ type: 'finishLunch' });
+      toast("Closed the demo lunch", { description: 'Start the next one below.' });
+    }
+  };
+  const [closing, setClosing] = useState<ApiLunch | null>(null);
   const [mode, setMode] = useState<RestaurantMode>(state.org.restaurantMode);
   const [radius, setRadius] = useState(state.org.radiusKm);
-  const [cutoff, setCutoff] = useState('12:30');
+  const cutoffs = cutoffsFrom(DEMO_NOW);
+  // 12:30 if it's still ahead today, otherwise about an hour from now.
+  const [cutoff, setCutoff] = useState(() => (toMin('12:30') > toMin(DEMO_NOW) + 10 ? '12:30' : cutoffs[Math.min(3, cutoffs.length - 1)]));
   const [address, setAddress] = useState(state.org.addresses[0] ?? '');
   const [picked, setPicked] = useState<string[]>(state.session.restaurantIds.slice(0, 3));
   const [started, setStarted] = useState(false);
@@ -67,12 +93,20 @@ export default function NewLunch() {
 
   const start = (e: React.FormEvent) => {
     e.preventDefault();
+    if (hasActive) return;
     if (!chosen.length) {
       setError(mode === 'nearby' ? `No restaurants within ${km(radius)}. Widen the range or choose them yourself.` : 'Choose at least one restaurant.');
       return;
     }
-    dispatch({ type: 'newSession', cutoff, address, restaurantIds: chosen });
-    setStarted(true);
+    setSending(true);
+    Promise.resolve(dispatch({ type: 'newSession', cutoff, address, restaurantIds: chosen }))
+      .then(() => {
+        setStarted(true);
+        celebrate({ x: innerWidth / 2, y: innerHeight / 2, title: 'Lunch started', sub: `Picks close at ${cutoff}. Share the link and the team can pick.`, tone: 'gold', icon: 'megaphone', sound: 'start' });
+        // The page moves on to Review & lock; the link to share stays one tap away.
+        toast('Share the lunch with the team', { description: link, duration: 12000, action: { label: 'Copy link', onClick: () => void copy() } });
+      }, () => undefined) // a failure is already on screen as a toast
+      .finally(() => setSending(false));
   };
 
   const copy = async () => {
@@ -85,9 +119,11 @@ export default function NewLunch() {
   };
 
   return (
-    <>
-      <PageTitle title="Start a lunch" sub="Offer the restaurants near the office, or choose them yourself. Everyone gets one link." />
-
+    <StepPage id="start" sub="Offer the restaurants near the office, or choose them yourself. Everyone gets one link.">
+      <CloseLunchDialog lunch={closing} onOpenChange={(open) => !open && setClosing(null)} />
+      <Tabs value={tab} onValueChange={(v) => setTab(v as 'active' | 'history')} className="gap-4">
+        <PillTabsList label="Lunches" value={tab} options={[{ value: 'active', label: 'Active lunch' }, { value: 'history', label: 'History' }]} className="w-fit" />
+        <TabsContent value="active">
       <AnimatePresence mode="wait" initial={false}>
         {started ? (
           <motion.div key="started" initial={{ opacity: 0, scale: 0.97, y: 12 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ duration: 0.6, ease: easeOut }}>
@@ -108,8 +144,28 @@ export default function NewLunch() {
               </CardContent>
             </Card>
           </motion.div>
+        ) : hasActive ? (
+          // One lunch at a time: while one is running, this tab shows only that lunch.
+          <motion.div key="active" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={spring}>
+            <Card>
+              <CardContent className="grid gap-3">
+                <ExistingLunches show="running" onClose={close} />
+                {/* The link to share is always here while the lunch runs, not just right after starting it. */}
+                <div className="grid gap-2 rounded-xl bg-muted/60 p-3">
+                  <Label htmlFor="share-link" className="text-[13px]">Share this link with the team</Label>
+                  <div className="flex gap-2 max-sm:flex-col">
+                    <Input id="share-link" readOnly spellCheck={false} value={link} onFocus={(e) => e.currentTarget.select()} className="h-10 bg-background font-mono text-[13px]" />
+                    <Button variant="outline" onClick={copy}>Copy link</Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">It opens Pick my lunch, so everyone can choose before the cutoff.</p>
+                </div>
+                <p className="text-[13px] text-muted-foreground">One lunch runs at a time. Once this one is complete, or you close it, you can start the next.</p>
+              </CardContent>
+            </Card>
+          </motion.div>
         ) : (
-          <motion.form key="form" exit={{ opacity: 0, scale: 0.98 }} className="grid items-start gap-4 lg:grid-cols-12" onSubmit={start}>
+          <motion.div key="form" exit={{ opacity: 0, scale: 0.98 }}>
+          <form onSubmit={start} className="grid items-start gap-4 lg:grid-cols-12">
             <Card className="lg:col-span-8" aria-labelledby="rest-h">
               <CardHeader>
                 <CardTitle id="rest-h">Restaurants</CardTitle>
@@ -230,32 +286,45 @@ export default function NewLunch() {
               <CardContent className="grid gap-5">
                 <Field>
                   <FieldLabel htmlFor="cutoff">Picks close at</FieldLabel>
-                  <Select value={cutoff} onValueChange={setCutoff}>
-                    <SelectTrigger id="cutoff" className="h-10 w-full"><SelectValue /></SelectTrigger>
-                    <SelectContent className="max-h-72">
-                      {CUTOFFS.map((t) => <SelectItem key={t} value={t}>{clock(t)}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <TimePicker id="cutoff" value={cutoff} onValueChange={setCutoff} options={cutoffs} now={DEMO_NOW} />
                 </Field>
                 <Field>
                   <FieldLabel htmlFor="addr">Deliver to</FieldLabel>
                   <Select value={address} onValueChange={setAddress}>
-                    <SelectTrigger id="addr" className="h-auto min-h-10 w-full py-2 text-left whitespace-normal *:data-[slot=select-value]:line-clamp-2"><SelectValue /></SelectTrigger>
+                    <SelectTrigger id="addr" className="w-full">
+                      <SelectValue>
+                        {splitAddress(address)[0]}
+                        {splitAddress(address)[1] && <span className="text-muted-foreground"> · {splitAddress(address)[1]}</span>}
+                      </SelectValue>
+                    </SelectTrigger>
                     <SelectContent>
-                      {state.org.addresses.map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+                      {state.org.addresses.map((a) => {
+                        const [place, area] = splitAddress(a);
+                        return <SelectItem key={a} value={a} description={area || undefined}>{place}</SelectItem>;
+                      })}
                     </SelectContent>
                   </Select>
                   <FieldDescription>Addresses come from your Swiggy account. Add more in Settings.</FieldDescription>
                 </Field>
-                <FieldDescription>Starting a new lunch replaces today's demo lunch and clears its picks.</FieldDescription>
-                <Button size="lg" type="submit">Start the lunch</Button>
+                <FieldDescription>{live ? 'The team can pick as soon as it starts, until the cutoff.' : "Starting a new lunch replaces today's demo lunch and clears its picks."}</FieldDescription>
+                <Button size="lg" type="submit" disabled={sending}>{sending ? "Starting…" : "Start the lunch"}</Button>
                 <p role="alert" className="text-[13px] text-destructive empty:hidden">{error}</p>
               </CardContent>
             </Card>
-          </motion.form>
+          </form>
+          </motion.div>
         )}
       </AnimatePresence>
-    </>
+        </TabsContent>
+        <TabsContent value="history">
+          <Card>
+            <CardContent>
+              <ExistingLunches show="past" onClose={close} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </StepPage>
   );
 }
 

@@ -30,7 +30,7 @@ export type Restaurant = {
   categories: Category[];
 };
 
-const slug = (s: string) =>
+export const slug = (s: string) =>
   s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
 const d = (rid: string, name: string, price: number, veg: boolean, desc?: string): Dish => ({
@@ -252,6 +252,15 @@ export function remember(restaurants: Restaurant[]) {
   listeners.forEach((l) => l());
 }
 
+// Add one dish found by search to its restaurant, so it can be picked before the full menu loads.
+export function rememberDish(restaurant: Restaurant, dish: Dish) {
+  const old = live.get(restaurant.id);
+  const categories = old?.categories.length ? old.categories : [{ name: 'Found by search', dishes: [] }];
+  if (!categories.some((c) => c.dishes.some((d) => d.id === dish.id)))
+    categories[categories.length - 1] = { ...categories[categories.length - 1], dishes: [...categories[categories.length - 1].dishes, dish] };
+  remember([{ ...restaurant, ...old, categories }]);
+}
+
 // Re-render when live restaurants or menus arrive.
 export const useMenus = () =>
   useSyncExternalStore(
@@ -264,13 +273,20 @@ export const useMenus = () =>
 
 const known = () => [...live.values(), ...RESTAURANTS.filter((r) => !live.has(r.id))];
 
-export const restaurantById = (id: string) => live.get(id) ?? RESTAURANTS.find((r) => r.id === id);
+// Restaurants and dishes the API's picks name but no loaded menu has (picks store names, not ids).
+// Kept in memory only and never offered for a new lunch.
+const stubs = new Map<string, Restaurant>();
+export const rememberStubs = (restaurants: Restaurant[]) => restaurants.forEach((r) => stubs.set(r.id, r));
+
+export const knownRestaurants = () => known();
+
+export const restaurantById = (id: string) => live.get(id) ?? RESTAURANTS.find((r) => r.id === id) ?? stubs.get(id);
 
 export const allDishes = (r: Restaurant) => r.categories.flatMap((c) => c.dishes);
 
 // Searches samples too: a live menu replaces a sample one, but older picks still name its dishes.
 export const dishById = (id: string): { dish: Dish; restaurant: Restaurant } | undefined => {
-  for (const r of [...live.values(), ...RESTAURANTS]) {
+  for (const r of [...live.values(), ...RESTAURANTS, ...stubs.values()]) {
     const dish = allDishes(r).find((x) => x.id === id);
     if (dish) return { dish, restaurant: r };
   }

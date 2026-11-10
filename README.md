@@ -2,7 +2,7 @@
 
 The React + TypeScript front end from the architecture doc: team members pick lunch from several
 restaurants, the host confirms one Swiggy order, and everyone watches a live board. It runs in the
-browser on sample data until the Django API, Firebase sign-in and the order bot are connected.
+browser on the Django API (`../lunch-backend`) when it answers, and on sample data when it doesn't.
 
 ## Run it
 
@@ -24,6 +24,44 @@ NODE_PATH=/path/to/node_modules node scripts/build-offline.mjs   # needs react, 
 cd dist && python3 -m http.server 4173
 ```
 
+## The API connection
+
+Data comes from the Django API through [TanStack Query](https://tanstack.com/query):
+
+- `src/api/client.ts`: `api()`, the one fetch wrapper. Calls go to `/api` on the app's own origin
+  (Vite proxies them to `API_URL`, default `http://127.0.0.1:8001`, the port lunch-backend's
+  `docker compose` uses). It turns DRF errors into one readable message, and sends the Firebase
+  ID token once sign-in calls `setIdToken`.
+- `src/api/queries.ts`: query keys, queries (`useMe`, `useMembers`, `useLunches`, `useBoard`,
+  restaurants, menus) and mutations (start, pick, skip, lock, confirm, order placed, delivered).
+  A board that is still moving is polled every 5 seconds, since the Firestore live board is off
+  locally; saving a pick shows on the board at once and rolls back if the API refuses it.
+- `src/live.tsx`: `LiveStore` wraps the signed-in app. If `GET /api/me` answers with a company,
+  the screens get today's lunch, the team and the picks from the API, and their actions become API
+  calls. Otherwise (no API, or not signed in) they keep the demo data. The landing page always
+  shows the demo.
+
+With the backend's `docker compose up`, `DEV_AUTH_EMAIL` signs every request in, so no Firebase
+is needed locally. That person's role decides what they see: a `member` can pick, while `host`
+or `admin` can also start lunches and place orders. Change it with
+`PUT /api/company/members/<id>/role` as an admin, or in the Django shell.
+
+Not in the API yet, so kept in the browser per lunch (`lunchboard-live-v1`): which restaurants a
+lunch offers (other browsers fall back to restaurants within the company's distance), and the
+host's review marks. Reopening locked picks has no endpoint, so the live app hides it. Picks
+are stored by restaurant and dish name, so a pick whose menu isn't loaded shows as a stand-in
+dish with the price the API has.
+
+One lunch runs at a time. A lunch is running from the moment it starts until its food arrives or it
+is called off. While one is running, **Start a lunch** is locked until the host closes it:
+
+- **Not ordered yet:** closing calls it off (`POST /api/lunches/<id>/cancel`).
+- **Ordered:** closing marks every Swiggy order delivered, which ends the lunch. Any order still
+  waiting for its Swiggy number has to get it in Review and order first.
+
+Only the app enforces this rule. The API still accepts a second lunch, so a guard in
+lunch-backend's `services.start` is needed to make it hold for every client.
+
 ## Screens
 
 | Route | Who | What it does |
@@ -31,7 +69,7 @@ cd dist && python3 -m http.server 4173
 | Sign in | Everyone | "Continue with Google" (demo: signs in as the sample host) |
 | `#/` Today's lunch | Everyone | Greeting with today's status, four figures, live board with filters and search, your pick, who still has to pick, delivery details, order progress |
 | `#/pick` Pick my lunch | Everyone | Restaurant tabs, menus with veg marks, quantities, a note, save or skip today |
-| `#/order` Review and order | Host | The cart by restaurant with who ordered what, lock/reopen picks, confirm, the order bot's steps, hand-out checklist |
+| `#/order` Review and order | Host | The cart by restaurant or by person as cards to tick off, lock/reopen picks, confirm, the order bot's steps (on the API: each Swiggy order, its number and arrival) |
 | `#/new` Start a lunch | Host | Restaurants **nearby** (every one within a distance of the office) or **chosen by hand**, with no limit on how many, cutoff time, delivery address, a share link |
 | `#/settings` Settings | Host | Company and email domain, lunch defaults (nearby or by hand, default distance), invites, office addresses, Swiggy account, members, reset demo |
 
@@ -42,13 +80,16 @@ from before that used an "admin" role open as the host.
 ## Sample data to replace
 
 - `src/data/menus.ts`: restaurants and dishes copied from the proof of concept's saved Swiggy data.
-  Live menus will come from the order bot (now) or the Swiggy MCP (later). Distances from the office,
+  **Start a lunch** and **Pick my lunch** now load live Swiggy restaurants and menus from the Django API
+  (`src/data/swiggy.ts`, see "The API connection"),
+  searched from `org.office` in `src/data/demo.ts`. The API needs a signed-in user, so until Firebase
+  sign-in calls `setIdToken`, these screens say so and show the samples instead. Distances from the office,
   areas, ratings and ETAs are sample values for every restaurant except Veg Meals By Lunchbox; the
   "nearby" choice uses `distanceKm`, so replace them with real distances from the office address.
 - `src/data/demo.ts`: the 35-person team, their picks, the office addresses and the demo clock
   (11:48) are invented. The order number `#1842209731 (demo)` and the bot's steps are simulated.
-- `src/store.tsx`: state lives in the browser (`localStorage`). Swap the reducer actions for calls
-  to the Django API (and Firestore listeners or polling for the live board).
+- `src/store.tsx`: the demo's state lives in the browser (`localStorage`). On the API, `src/live.tsx`
+  provides the same store from TanStack Query instead.
 
 ## Design
 
@@ -92,7 +133,13 @@ sliding pill to shadcn's ToggleGroup and Tabs. Signed out, the app opens on the 
 Light and dark themes come from CSS variables in `src/index.css` (`.dark` on `<html>`). The theme follows the
 system until someone uses the toggle, and `index.html` applies it before first paint. Adding a dish flies its photo
 into the cart (`src/components/fly.tsx`); saving a pick or placing the order plays a green success moment
-(`src/components/celebrate.tsx`).
+(`src/components/celebrate.tsx`), and locking the picks a dark one with a padlock.
+
+Locking plays a padlock snapping shut, and placing the order a till's "ka-ching" with coins
+(`src/lib/sound.ts`). They are synthesised with the Web Audio API, so there are no audio files. Each runs
+through a small room reverb, a compressor and a soft limiter: loud, with peaks just under full scale.
+`scheduleSound` also renders them into an `OfflineAudioContext`, for checking levels. **Settings → Sounds**
+turns them off and plays each one.
 
 ## Fonts
 

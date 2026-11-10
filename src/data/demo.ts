@@ -21,6 +21,8 @@ export type Pick = {
   note: string;
   skipped: boolean;
   updatedAt: string; // HH:MM, demo clock
+  // Completed the order or skipped: final until the host reopens it.
+  done?: boolean;
 };
 
 export type BotStep = { at: string; text: string };
@@ -39,6 +41,11 @@ export type Session = {
   orderRef: string | null;
   bot: BotStep[];
   handedOut: Record<string, boolean>;
+  // The host's review: "r:<restaurant id>" once its dishes are in the Swiggy cart, "p:<person id>" once that
+  // person's order is checked. Done cards collapse.
+  checked?: Record<string, boolean>;
+  arrived?: Record<string, boolean>; // restaurant id → its food has been collected
+  completed?: boolean; // the host closed the lunch after handing everything out
 };
 
 export type RestaurantMode = 'nearby' | 'manual';
@@ -78,7 +85,14 @@ export const PEOPLE: Person[] = [
   })),
 ];
 
-export const personById = (id: string) => PEOPLE.find((p) => p.id === id);
+// People from the API join the demo team here, so names resolve for both. Their ids are UUIDs,
+// so they never clash with the demo's.
+const known = new Map<string, Person>();
+export const rememberPeople = (people: Person[]) => people.forEach((p) => known.set(p.id, p));
+export const personById = (id: string) => PEOPLE.find((p) => p.id === id) ?? known.get(id);
+
+// A stable tint for someone the demo doesn't know, from their id.
+export const hueOf = (id: string) => [...id].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 360, 7);
 
 // Today's demo lunch: a local favourite and four well-known chains.
 export const SESSION_RESTAURANTS = ['263840', 'kfc', 'burger-king', 'saravana-bhavan', 'baskin-robbins'];

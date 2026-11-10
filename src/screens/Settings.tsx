@@ -1,10 +1,13 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
-import { ME_ID, PEOPLE, RADIUS_RANGE, type RestaurantMode } from '@/data/demo';
+import { RADIUS_RANGE, type RestaurantMode } from '@/data/demo';
 import { restaurantsWithin } from '@/data/menus';
 import { useStore } from '@/store';
-import { Avatar } from '@/ui';
+import { useMembers, useSetPermissions } from '@/api/queries';
+import { ALL_PERMISSIONS, MEMBER_PERMISSIONS, isHost, type ApiUser } from '@/api/types';
+import { hueOf, personById } from '@/data/demo';
+import { Avatar, Icon } from '@/ui';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -18,6 +21,7 @@ import { Field, FieldContent, FieldDescription, FieldError, FieldLabel } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { PageTitle } from '@/components/PageTitle';
 import { spring } from '@/lib/cn';
+import { playSound, setSoundOn, soundOn } from '@/lib/sound';
 
 function Section({ id, title, intro, children }: { id: string; title: string; intro: ReactNode; children: ReactNode }) {
   return (
@@ -33,10 +37,12 @@ function Section({ id, title, intro, children }: { id: string; title: string; in
   );
 }
 
+const listItem = 'flex items-center gap-3 rounded-lg bg-muted/60 px-3 py-2.5 text-sm';
+
 const km = (n: number) => `${n.toLocaleString('en-IN', { maximumFractionDigits: 1 })} km`;
 
 export default function Settings() {
-  const { state, dispatch } = useStore();
+  const { state, dispatch, people: PEOPLE, meId: ME_ID, live } = useStore();
   const { org } = state;
   const [name, setName] = useState(org.name);
   const [team, setTeam] = useState(org.team);
@@ -45,6 +51,7 @@ export default function Settings() {
   const [inviteError, setInviteError] = useState('');
   const [newAddr, setNewAddr] = useState('');
   const [confirmReset, setConfirmReset] = useState(false);
+  const [sounds, setSounds] = useState(soundOn);
   const nearby = restaurantsWithin(org.radiusKm);
 
   const saveCompany = (e: React.FormEvent) => {
@@ -74,7 +81,6 @@ export default function Settings() {
     toast.success('Address added');
   };
 
-  const listItem = 'flex items-center gap-3 rounded-lg bg-muted/60 px-3 py-2.5 text-sm';
 
   return (
     <div>
@@ -93,7 +99,7 @@ export default function Settings() {
             </Field>
             <Field>
               <FieldLabel htmlFor="co-domain">Company email domain</FieldLabel>
-              <Input id="co-domain" name="email-domain" autoComplete="off" spellCheck={false} inputMode="url" className="h-10" value={domain} onChange={(e) => setDomain(e.target.value)} />
+              <Input id="co-domain" name="email-domain" autoComplete="off" spellCheck={false} inputMode="url" className="h-10" value={domain} readOnly={!!live} onChange={(e) => setDomain(e.target.value)} />
               <FieldDescription>Anyone who signs in with a Google account at @{domain || 'yourcompany.com'} can join.</FieldDescription>
             </Field>
             <Field orientation="horizontal">
@@ -221,17 +227,57 @@ export default function Settings() {
 
         <Separator />
 
-        <Section id="mem-h" title="Members" intro={`${PEOPLE.length} people. Everyone picks lunch; the host also starts lunches, places the order and manages these settings.`}>
-          <ul className="grid gap-2">
-            {PEOPLE.slice(0, 5).map((p) => (
-              <li key={p.id} className={listItem}>
-                <Avatar person={p} />
-                <div className="min-w-0 flex-1"><div className="truncate font-medium">{p.name}</div><div className="truncate text-[13px] text-muted-foreground">{p.email}</div></div>
-                <Badge variant={p.id === ME_ID ? 'info' : 'secondary'}>{p.id === ME_ID ? 'Host' : 'Member'}</Badge>
-              </li>
-            ))}
-          </ul>
-          <FieldDescription>Showing 5 of {PEOPLE.length}. The full list and changing the host arrive with the back end.</FieldDescription>
+        {live ? (
+          <Section
+            id="mem-h"
+            title="Members"
+            intro="Everyone picks lunch. Hosts also start lunches, lock picks, confirm the cart, reopen people's orders and manage these settings. A lunch can have several hosts."
+          >
+            <LiveMembers />
+          </Section>
+        ) : (
+          <Section id="mem-h" title="Members" intro={`${PEOPLE.length} people. Everyone picks lunch; the host also starts lunches, places the order and manages these settings.`}>
+            <ul className="grid gap-2">
+              {PEOPLE.slice(0, 5).map((p) => (
+                <li key={p.id} className={listItem}>
+                  <Avatar person={p} />
+                  <div className="min-w-0 flex-1"><div className="truncate font-medium">{p.name}</div><div className="truncate text-[13px] text-muted-foreground">{p.email}</div></div>
+                  <Badge variant={p.id === ME_ID ? 'info' : 'secondary'}>{p.id === ME_ID ? 'Host' : 'Member'}</Badge>
+                </li>
+              ))}
+            </ul>
+            <FieldDescription>Showing 5 of {PEOPLE.length}. The full list and changing the host arrive with the back end.</FieldDescription>
+          </Section>
+        )}
+
+        <Separator />
+
+        <Section id="snd-h" title="Sounds" intro="A soft ding when you save your pick, a padlock snapping shut when the host locks the picks, and a till ringing when the order goes out. Only this browser is affected.">
+          <Field orientation="horizontal">
+            <FieldContent>
+              <FieldLabel htmlFor="snd-on">Play sounds</FieldLabel>
+              <FieldDescription>Turn off to keep the moments silent.</FieldDescription>
+            </FieldContent>
+            <Switch
+              id="snd-on"
+              checked={sounds}
+              onCheckedChange={(v) => {
+                setSoundOn(v);
+                setSounds(v);
+              }}
+            />
+          </Field>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => playSound('lock', 0, true)}>
+              <Icon name="lock" size={14} /> Play the lock sound
+            </Button>
+            <Button variant="outline" onClick={() => playSound('saved', 0, true)}>
+              <Icon name="check" size={14} /> Play the pick saved sound
+            </Button>
+            <Button variant="outline" onClick={() => playSound('money', 0, true)}>
+              <Icon name="check" size={14} /> Play the order sound
+            </Button>
+          </div>
         </Section>
 
         <Separator />
@@ -254,5 +300,79 @@ export default function Settings() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+// The company's members from the API: who is a host, and, for people allowed to manage members, a way
+// to make someone a host or a member again.
+function LiveMembers() {
+  const { live, meId } = useStore();
+  const members = useMembers();
+  const setPermissions = useSetPermissions();
+  const [change, setChange] = useState<{ user: ApiUser; toHost: boolean } | null>(null);
+  const list = [...(members.data ?? [])].sort((a, b) => Number(isHost(b)) - Number(isHost(a)) || a.name.localeCompare(b.name));
+  const first = (u: ApiUser) => u.name.split(' ')[0] || u.email;
+
+  if (members.isPending) return <div className="grid gap-2">{[0, 1, 2].map((i) => <span key={i} className="h-14 animate-pulse rounded-xl bg-muted" />)}</div>;
+
+  return (
+    <>
+      <ul className="grid gap-2">
+        {list.map((u) => {
+          const host = isHost(u);
+          return (
+            <li key={u.id} className={listItem}>
+              <Avatar person={personById(u.id) ?? { id: u.id, name: u.name, email: u.email, hue: hueOf(u.id) }} />
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-medium">{u.name}{u.id === meId && <span className="font-normal text-muted-foreground"> (you)</span>}</div>
+                <div className="truncate text-[13px] text-muted-foreground">{u.email}</div>
+              </div>
+              <Badge variant={host ? 'info' : 'secondary'}>{host ? 'Host' : 'Member'}</Badge>
+              {live?.canManageMembers && u.id !== meId && (
+                <Button size="sm" variant={host ? 'ghost' : 'outline'} className={host ? 'text-muted-foreground' : undefined} onClick={() => setChange({ user: u, toHost: !host })}>
+                  {host ? 'Remove host' : 'Make host'}
+                </Button>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      <FieldDescription>{list.length} {list.length === 1 ? 'person' : 'people'}, {list.filter(isHost).length} {list.filter(isHost).length === 1 ? 'host' : 'hosts'}.</FieldDescription>
+
+      <Dialog open={!!change} onOpenChange={(o) => !o && setChange(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{change?.toHost ? `Make ${change && first(change.user)} a host?` : `Make ${change && first(change.user)} a member again?`}</DialogTitle>
+            <DialogDescription>
+              {change?.toHost
+                ? 'Hosts start lunches, lock picks, confirm the cart and place the order, reopen people\'s orders, and manage members.'
+                : 'They can still pick lunch, but can no longer start or run lunches or manage members.'}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setChange(null)}>Cancel</Button>
+            <Button
+              disabled={setPermissions.isPending}
+              variant={change?.toHost ? 'default' : 'destructive'}
+              onClick={() =>
+                change &&
+                setPermissions.mutate(
+                  { userId: change.user.id, permissions: change.toHost ? ALL_PERMISSIONS : MEMBER_PERMISSIONS },
+                  {
+                    onSuccess: () => {
+                      toast.success(change.toHost ? `${first(change.user)} is a host now` : `${first(change.user)} is a member again`);
+                      setChange(null);
+                    },
+                    onError: (e) => toast.error("Couldn't change their role", { description: e.message }),
+                  },
+                )
+              }
+            >
+              {setPermissions.isPending ? 'Saving…' : change?.toHost ? 'Make host' : 'Remove host'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

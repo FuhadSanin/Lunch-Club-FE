@@ -1,39 +1,51 @@
 import { AnimatePresence, motion } from 'motion/react';
+import { toast } from 'sonner';
 import { useMemo, useState } from 'react';
-import { DEMO_NOW, ME_ID, PEOPLE, personById } from '@/data/demo';
+import { personById, type Person } from '@/data/demo';
 import { dishById } from '@/data/menus';
 import { useLunch, useStore } from '@/store';
 import { Avatar, FoodPhoto, Icon, LiveDot, rupees } from '@/ui';
 import { Button } from '@/components/ui/button';
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { StatusBadge, StatusBar, StatusDot, WithStatus, STATUS, type PickStatus } from '@/components/status';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Segmented } from '@/components/ui/segmented';
 import { AnimatedNumber } from '@/components/ui/number';
 import { PageTitle } from '@/components/PageTitle';
 import { spring } from '@/lib/cn';
-import OrderSteps from './OrderSteps';
+import { StepTracker, useLunchSteps } from '@/components/steps';
+import { STEPS } from '@/lib/steps';
 
 const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+const localDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const until = (m: number) => (m < 60 ? `${m} min` : `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''}`);
 
 type Filter = 'all' | 'picked' | 'waiting' | 'skipped';
 
 export default function Home() {
-  const { state } = useStore();
+  const { state, people: PEOPLE, meId: ME_ID, now: DEMO_NOW, live } = useStore();
+  const steps = useLunchSteps();
+  // The lunch's host, and whether you may let someone who completed or skipped pick again.
+  const host = personById(state.session.hostId);
+  const canManage = state.session.status === 'open' && (live ? live.canReopen : state.role === 'host');
   const lunch = useLunch();
   const { session, picks, org } = state;
   const [filter, setFilter] = useState<Filter>('all');
   const [q, setQ] = useState('');
   const [showAll, setShowAll] = useState(false);
 
-  const minsLeft = toMin(session.cutoff) - toMin(DEMO_NOW);
+  // On the API a cutoff can be tomorrow (a time already past today rolls over), so count the days too.
+  const days = live ? Math.round((Date.parse(`${session.date}T00:00`) - Date.parse(`${localDate(new Date())}T00:00`)) / 864e5) || 0 : 0;
+  const minsLeft = toMin(session.cutoff) + days * 1440 - toMin(DEMO_NOW);
+  const closesAt = days === 1 ? `tomorrow at ${session.cutoff}` : session.cutoff;
   const isOpen = session.status === 'open';
   const hour = Number(DEMO_NOW.slice(0, 2));
   const hello = hour < 12 ? 'Morning' : 'Afternoon';
 
   const statusLine = isOpen
-    ? `${lunch.picked.length} of ${lunch.team} have picked. Picks close at ${session.cutoff}, ${minsLeft} min from now.`
+    ? `${lunch.picked.length} of ${lunch.team} have picked. Picks close ${closesAt}, ${minsLeft > 0 ? `in ${until(minsLeft)}` : 'any moment now'}.`
     : session.status === 'locked'
       ? `Picks are locked. ${lunch.picked.length} people, ${lunch.dishes} dishes, waiting for the host to confirm.`
       : session.status === 'placing'
@@ -42,13 +54,15 @@ export default function Home() {
           ? `Ordered on Swiggy at ${session.bot.at(-1)?.at ?? DEMO_NOW}. Food is on its way.`
           : 'Lunch has arrived. The host is handing it out.';
 
+  const statusOf = (id: string): PickStatus =>
+    picks[id]?.skipped ? 'skipped' : picks[id]?.items.length ? 'picked' : 'waiting';
   const rows = useMemo(() => {
-    const status = (id: string): Filter =>
-      picks[id]?.skipped ? 'skipped' : picks[id]?.items.length ? 'picked' : 'waiting';
+    const status = statusOf;
     return PEOPLE.filter((p) => filter === 'all' || status(p.id) === filter)
       .filter((p) => p.name.toLowerCase().includes(q.trim().toLowerCase()))
       .sort((a, b) => (a.id === ME_ID ? -1 : b.id === ME_ID ? 1 : 0));
-  }, [picks, filter, q]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [picks, filter, q, PEOPLE, ME_ID]);
   const visible = showAll ? rows : rows.slice(0, 8);
 
   const mine = picks[ME_ID];
@@ -73,24 +87,29 @@ export default function Home() {
           <>
             {isOpen && (
               <Button asChild>
-                <a href="#/pick">{mine && !mine.skipped && mine.items.length ? 'Change my pick' : 'Pick my lunch'}</a>
-              </Button>
-            )}
-            {state.role === 'host' && session.status !== 'delivered' && (
-              <Button asChild variant="outline">
-                <a href="#/order">Review and order</a>
+                <a href="#/pick">{mine?.done ? 'See my order' : mine?.items.length ? 'Finish my order' : 'Pick my lunch'}</a>
               </Button>
             )}
           </>
         }
       />
 
+      <NowBanner />
+
       <Card className="grid grid-cols-2 gap-px bg-line py-0 md:grid-cols-4" aria-label="Today in numbers">
         {[
-          { label: 'Picked', value: <><AnimatedNumber value={lunch.picked.length} /><span className="text-mute">/{lunch.team}</span></>, caption: `${lunch.waiting.length} still to pick, ${lunch.skipped.length} skipping` },
+          { label: 'Picked', value: <><span className="text-ok"><AnimatedNumber value={lunch.picked.length} /></span><span className="text-mute">/{lunch.team}</span></>, caption: (
+            <span className="grid gap-2">
+              <StatusBar counts={{ picked: lunch.picked.length, waiting: lunch.waiting.length, skipped: lunch.skipped.length }} />
+              <span className="flex flex-wrap gap-x-3 gap-y-1">
+                <span className="inline-flex items-center gap-1.5"><StatusDot status="waiting" />{lunch.waiting.length} to pick</span>
+                <span className="inline-flex items-center gap-1.5"><StatusDot status="skipped" />{lunch.skipped.length} skipping</span>
+              </span>
+            </span>
+          ) },
           { label: 'Restaurants in the cart', value: <AnimatedNumber value={lunch.cart.length} />, caption: 'All in one Swiggy cart' },
           { label: 'Items total', value: <AnimatedNumber value={lunch.total} format={(n) => rupees(Math.abs(n - lunch.total) < 0.01 ? lunch.total : Math.round(n))} />, caption: `${lunch.dishes} dishes, before Swiggy's fees` },
-          { label: isOpen ? 'Picks close' : 'Order', value: <span className="num">{stateWord}</span>, caption: isOpen ? `in ${minsLeft} min` : session.orderRef ? `Swiggy order ${session.orderRef}` : 'Host confirms next' },
+          { label: isOpen ? 'Picks close' : 'Order', value: <span className="num">{stateWord}</span>, caption: isOpen ? (minsLeft > 0 ? `${days === 1 ? 'Tomorrow, ' : ''}in ${until(minsLeft)}` : 'Any moment now') : session.orderRef ? `Swiggy order ${session.orderRef}` : 'Host confirms next' },
         ].map((k) => (
           <div key={k.label} className="flex min-h-32 flex-col bg-card p-5">
             <span className="text-[13px] text-muted-foreground">{k.label}</span>
@@ -108,6 +127,7 @@ export default function Home() {
                 Live board
                 {isOpen && <span className="flex items-center gap-1.5 text-xs font-normal text-ok"><LiveDot /> Live</span>}
               </CardTitle>
+              {host && <span className="text-[13px] text-muted-foreground">Hosted by <span className="font-medium text-foreground">{host.id === ME_ID ? 'you' : host.name}</span></span>}
               <label className="relative ml-auto w-full sm:w-56">
                 <span className="sr-only">Find a person</span>
                 <Icon name="search" size={14} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground" />
@@ -130,9 +150,23 @@ export default function Home() {
                 onChange={(f) => { setFilter(f); setShowAll(false); }}
                 options={(['all', 'picked', 'waiting', 'skipped'] as Filter[]).map((f) => ({
                   value: f,
-                  label: <>{f === 'all' ? 'Everyone' : f === 'picked' ? 'Picked' : f === 'waiting' ? 'To pick' : 'Skipping'} <span className="num text-muted-foreground">{counts[f]}</span></>,
+                  label: (
+                    <>
+                      {f !== 'all' && <StatusDot status={f} />}
+                      {f === 'all' ? 'Everyone' : STATUS[f].label} <span className="num text-muted-foreground">{counts[f]}</span>
+                    </>
+                  ),
                 }))}
               />
+              {canManage && (
+                <p className="mb-3 flex items-start gap-2 rounded-xl bg-muted/60 px-3 py-2.5 text-[13px] text-muted-foreground">
+                  <Icon name="lock" size={14} className="mt-0.5 flex-none" />
+                  <span>
+                    You're the host. <span className="font-medium text-foreground">Mark skipped</span> anyone who isn't eating today, and{' '}
+                    <span className="font-medium text-foreground">Reopen</span> anyone who needs to change a completed order or a skip.
+                  </span>
+                </p>
+              )}
               <ul className="grid">
                 <AnimatePresence initial={false} mode="popLayout">
                   {visible.map((p) => {
@@ -147,11 +181,15 @@ export default function Home() {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, transition: { duration: 0.15 } }}
                         transition={spring}
-                        className="-mx-2 flex min-h-[60px] items-center gap-3 rounded-xl px-2 py-2 transition-colors duration-200 hover:bg-muted/60"
+                        className="-mx-2 flex min-h-[60px] flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl px-2 py-2 transition-colors duration-200 hover:bg-muted/60 sm:flex-nowrap"
                       >
-                        <Avatar person={p} />
+                        <WithStatus status={statusOf(p.id)}><Avatar person={p} /></WithStatus>
                         <div className="min-w-0 flex-1">
-                          <div className="truncate text-sm font-medium">{p.name}{p.id === ME_ID && <span className="font-normal text-muted-foreground"> (you)</span>}</div>
+                          <div className="flex items-center gap-2 text-sm font-medium">
+                            <span className="truncate">{p.name}{p.id === ME_ID && <span className="font-normal text-muted-foreground"> (you)</span>}</span>
+                            {p.id === session.hostId && <Badge variant="info" className="flex-none">Host</Badge>}
+                            {pk?.done && !pk.skipped && <Badge variant="success" className="flex-none">Done</Badge>}
+                          </div>
                           <div className="truncate text-[13px] text-muted-foreground">
                             {pk?.skipped
                               ? 'Skipping today'
@@ -161,9 +199,20 @@ export default function Home() {
                             {pk?.note ? ` · “${pk.note}”` : ''}
                           </div>
                         </div>
+                        {canManage && (
+                          <div className="max-sm:order-last max-sm:basis-full max-sm:pl-12">
+                            <HostAction person={p} status={statusOf(p.id)} done={!!pk?.done || statusOf(p.id) === 'skipped'} />
+                          </div>
+                        )}
                         <div className="text-right text-sm num">
-                          {lines.length ? <div>{rupees(amount)}</div> : <div className="text-muted-foreground">—</div>}
-                          <div className="text-xs text-muted-foreground">{pk ? pk.updatedAt : ''}</div>
+                          {lines.length ? (
+                            <>
+                              <div>{rupees(amount)}</div>
+                              <div className="text-xs text-muted-foreground">{pk.updatedAt}</div>
+                            </>
+                          ) : (
+                            <StatusBadge status={statusOf(p.id)} />
+                          )}
                         </div>
                       </motion.li>
                     );
@@ -179,31 +228,23 @@ export default function Home() {
             </CardContent>
           </Card>
 
-          <Card aria-labelledby="order-title">
-            <CardHeader>
-              <CardTitle id="order-title">Order</CardTitle>
-              {state.role === 'host' && (
-                <CardAction>
-                  <Button asChild variant="link" size="sm" className="h-auto px-0">
-                    <a href="#/order">Open</a>
-                  </Button>
-                </CardAction>
-              )}
-            </CardHeader>
-            <CardContent>
-              <OrderSteps />
-            </CardContent>
-          </Card>
         </div>
 
         <div className="grid content-start gap-4 lg:col-span-4">
+          <Card aria-labelledby="steps-title">
+            <CardHeader>
+              <CardTitle id="steps-title">Lunch steps</CardTitle>
+              <CardAction><span className="text-xs text-muted-foreground num">{steps.states ? Object.values(steps.states).filter((v) => v === 'done').length : 0} of {STEPS.length} done</span></CardAction>
+            </CardHeader>
+            <CardContent><StepTracker canRun={state.role === 'host'} /></CardContent>
+          </Card>
           <Card aria-labelledby="mine-title">
             <CardHeader>
               <CardTitle id="mine-title">Your pick</CardTitle>
             </CardHeader>
             <CardContent>
               {mine?.skipped ? (
-                <p className="text-sm text-muted-foreground">You are skipping today.</p>
+                <p className="text-sm text-muted-foreground">You are skipping today. Ask {host?.name.split(' ')[0] ?? 'the host'} if you change your mind.</p>
               ) : mine?.items.length ? (
                 <div className="grid gap-3">
                   {mine.items.map((l) => {
@@ -226,10 +267,13 @@ export default function Home() {
               ) : (
                 <p className="text-sm text-muted-foreground">You have not picked yet.</p>
               )}
-              {isOpen && (
+              {mine?.done && !mine.skipped && (
+                <p className="mt-3 flex items-center gap-2 text-[13px] text-ok"><Icon name="check" size={13} /> Complete. {host?.id === ME_ID ? 'You can reopen it from the board for a change.' : `Ask ${host?.name.split(' ')[0] ?? 'the host'} to reopen it for a change.`}</p>
+              )}
+              {isOpen && !mine?.done && (
                 <Button asChild variant="link" className="group mt-3 h-auto px-0">
                   <a href="#/pick">
-                    {mine?.items.length ? 'Change it' : 'Pick now'}
+                    {mine?.items.length ? 'Finish my order' : 'Pick now'}
                     <Icon name="arrow" size={14} className="transition-transform duration-300 ease-out-expo group-hover:translate-x-1" />
                   </a>
                 </Button>
@@ -239,17 +283,17 @@ export default function Home() {
 
           <Card aria-labelledby="waiting-title">
             <CardHeader>
-              <CardTitle id="waiting-title" className="flex items-center gap-2">Still to pick <Badge variant="secondary">{lunch.waiting.length}</Badge></CardTitle>
+              <CardTitle id="waiting-title" className="flex items-center gap-2">Still to pick <StatusBadge status="waiting">{lunch.waiting.length}</StatusBadge></CardTitle>
             </CardHeader>
             <CardContent>
               {lunch.waiting.length ? (
                 <ul className="grid gap-2.5">
                   {lunch.waiting.slice(0, 6).map((p) => (
-                    <li key={p.id} className="flex items-center gap-2.5 text-sm"><Avatar person={p} size="sm" />{p.name}</li>
+                    <li key={p.id} className="flex items-center gap-2.5 text-sm"><WithStatus status="waiting"><Avatar person={p} size="sm" /></WithStatus>{p.name}</li>
                   ))}
                 </ul>
               ) : (
-                <p className="text-sm text-muted-foreground">Everyone has answered.</p>
+                <p className="flex items-center gap-2 text-sm text-ok"><StatusDot status="picked" />Everyone has answered.</p>
               )}
             </CardContent>
           </Card>
@@ -269,5 +313,82 @@ export default function Home() {
         </div>
       </div>
     </>
+  );
+}
+
+// What's happening now, in one line, at the top of Today's lunch: hosts get the button for the next
+// step; everyone else sees what the host is doing.
+function NowBanner() {
+  const { state } = useStore();
+  const { current } = useLunchSteps();
+  const n = STEPS.findIndex((s) => s.id === current);
+  const step = STEPS[n];
+  const host = state.role === 'host';
+  const forTeam: Record<string, string> = {
+    start: 'No lunch is running.',
+    review: 'Picks are open. Pick your lunch and complete your order before the cutoff.',
+    order: 'Picks are locked. The host is placing the order on Swiggy.',
+    collect: 'The order is placed. Food is on its way.',
+    distribute: 'Lunch has arrived. Collect yours from the host.',
+    finish: 'Everyone has their lunch.',
+  };
+  return (
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={spring} className="mb-4">
+      <Card className="border-0 bg-foreground py-0 text-background shadow-none">
+        <CardContent className="flex flex-wrap items-center gap-3 px-4 py-3.5 sm:px-5">
+          <span className="grid size-7 flex-none place-items-center rounded-full bg-background text-xs font-semibold text-foreground num" aria-hidden="true">{n + 1}</span>
+          <div className="min-w-0 flex-1">
+            <div className="text-xs opacity-70">Now · step {n + 1} of {STEPS.length}</div>
+            <div className="text-sm font-semibold">{host ? `${step.label}: ${step.hint}` : forTeam[current]}</div>
+          </div>
+          {host && (
+            <Button asChild variant="secondary" size="sm" className="max-sm:w-full">
+              <a href={`#${step.route}`}>{current === 'start' ? 'Start a lunch' : `Go to ${step.label.toLowerCase()}`}</a>
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+    </motion.div>
+  );
+}
+
+// The host's one action on a person, always visible on their row: mark someone still to pick as
+// skipping (with an undo), or reopen someone who completed or skipped so they can change it.
+function HostAction({ person, status, done }: { person: Person; status: PickStatus; done: boolean }) {
+  const { dispatch } = useStore();
+  const name = person.name.split(' ')[0];
+  if (done)
+    return (
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={() =>
+          Promise.resolve(dispatch({ type: 'reopenPick', userId: person.id })).then(
+            () => toast.success(`${name} can change their ${status === 'skipped' ? 'day' : 'order'} again`),
+            () => undefined,
+          )
+        }
+      >
+        Reopen
+      </Button>
+    );
+  if (status !== 'waiting') return null;
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      className="text-muted-foreground"
+      onClick={() =>
+        Promise.resolve(dispatch({ type: 'skip', userId: person.id })).then(
+          () =>
+            toast(`${name} is skipping today`, {
+              action: { label: 'Undo', onClick: () => void dispatch({ type: 'reopenPick', userId: person.id }) },
+            }),
+          () => undefined,
+        )
+      }
+    >
+      Mark skipped
+    </Button>
   );
 }

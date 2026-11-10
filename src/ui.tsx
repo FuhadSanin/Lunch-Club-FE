@@ -148,3 +148,31 @@ export function LiveDot({ className }: { className?: string }) {
     </span>
   );
 }
+
+// A restaurant's Swiggy rating as five golden stars, each filled as far as the score reaches
+// (4.3: four full and a third), then the number.
+const STAR = 'M10 1.8l2.5 5.2 5.7.8-4.1 4 1 5.6L10 14.7l-5.1 2.7 1-5.6-4.1-4 5.7-.8z';
+export function Rating({ value, size = 14, className }: { value?: number; size?: number; className?: string }) {
+  if (!value) return null;
+  const score = Math.max(0, Math.min(5, value));
+  return (
+    <span className={cn('inline-flex items-center gap-1.5 font-semibold text-foreground num', className)} role="img" aria-label={`Rated ${score.toFixed(1)} out of 5`}>
+      <span className="inline-flex gap-px" aria-hidden="true">
+        {[0, 1, 2, 3, 4].map((i) => {
+          const fill = Math.max(0, Math.min(1, score - i));
+          return (
+            <span key={i} className="relative inline-block" style={{ width: size, height: size }}>
+              <svg width={size} height={size} viewBox="0 0 20 20" className="absolute inset-0 fill-[#e3e3e3] dark:fill-[#3a3a3a]"><path d={STAR} /></svg>
+              {fill > 0 && (
+                <span className="absolute inset-y-0 left-0 overflow-hidden" style={{ width: `${fill * 100}%` }}>
+                  <svg width={size} height={size} viewBox="0 0 20 20" className="fill-[#f5a623]"><path d={STAR} /></svg>
+                </span>
+              )}
+            </span>
+          );
+        })}
+      </span>
+      {score.toFixed(1)}
+    </span>
+  );
+}

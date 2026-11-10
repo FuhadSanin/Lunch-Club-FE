@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { AnimatedNumber } from '@/components/ui/number';
 import { cn, easeOut, spring } from '@/lib/cn';
 import { Reveal } from './motion';
+import { LockScene } from '@/components/lock-scene';
 
 type Lunch = ReturnType<typeof useLunch>;
 type Ctx = { lunch: Lunch; picks: Record<string, Pick>; cutoff: string };
@@ -225,31 +226,10 @@ function ScenePicks({ ctx }: { ctx: Ctx }) {
 
 // 2. The padlock snaps shut, the board dims, a stamp lands.
 function SceneLock({ ctx }: { ctx: Ctx }) {
-  const people = latestFour(ctx).slice(0, 3);
+  const rows = latestFour(ctx).slice(0, 3).map((person) => ({ person, amount: amount(ctx.picks[person.id]) }));
   return (
     <Panel className="relative min-h-[300px] overflow-hidden">
-      <motion.ul className="grid gap-2" initial={{ opacity: 1 }} animate={{ opacity: 0.25 }} transition={{ delay: 0.7, duration: 0.6 }}>
-        {people.map((p) => (
-          <li key={p.id} className="flex items-center gap-3 rounded-xl bg-muted/60 px-3 py-2.5 text-sm">
-            <Avatar person={p} size="sm" /><span className="flex-1 truncate">{p.name.split(' ')[0]}</span><span className="num">{rupees(amount(ctx.picks[p.id]))}</span>
-          </li>
-        ))}
-      </motion.ul>
-      <div className="absolute inset-0 grid place-items-center p-5">
-        <div className="grid justify-items-center gap-3 text-center">
-          <svg width="64" height="72" viewBox="0 0 64 72" aria-hidden="true" className="text-foreground">
-            <motion.path d="M18 34 V22 a14 14 0 0 1 28 0 V34" fill="none" stroke="currentColor" strokeWidth="6" strokeLinecap="round" initial={{ y: -12 }} animate={{ y: 0 }} transition={{ ...spring, delay: 0.45 }} />
-            <rect x="8" y="32" width="48" height="36" rx="9" className="fill-primary" />
-            <motion.circle cx="32" cy="50" r="5" className="fill-primary-foreground" initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ ...spring, delay: 0.75 }} />
-          </svg>
-          <motion.div initial={{ scale: 1.8, opacity: 0, rotate: -12 }} animate={{ scale: 1, opacity: 1, rotate: -4 }} transition={{ ...spring, delay: 0.9 }}>
-            <span className="inline-block rounded-lg border-2 border-foreground bg-background px-3 py-1 text-sm font-semibold">Picks locked at {ctx.cutoff}</span>
-          </motion.div>
-          <motion.p className="rounded-full bg-background/80 px-3 text-[13px] text-muted-foreground num" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.2 }}>
-            {plural(ctx.lunch.picked.length, 'person', 'people')} · {plural(ctx.lunch.dishes, 'dish', 'dishes')} · {ctx.lunch.waiting.length} did not answer
-          </motion.p>
-        </div>
-      </div>
+      <LockScene rows={rows} cutoff={ctx.cutoff} people={ctx.lunch.picked.length} dishes={ctx.lunch.dishes} waiting={ctx.lunch.waiting.length} />
     </Panel>
   );
 }

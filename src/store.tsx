@@ -1,11 +1,12 @@
 import { createContext, useContext, useEffect, useMemo, useReducer, type ReactNode } from 'react';
 import {
   DEMO_NOW, DEMO_ORG, DEMO_PICKS, DEMO_SESSION, ME_ID, PEOPLE,
-  type BotStep, type Org, type Pick, type PickLine, type Role, type Session,
+  type BotStep, type Org, type Person, type Pick, type PickLine, type Role, type Session,
 } from './data/demo';
+import type { ApiOrder } from './api/types';
 import { dishById, restaurantById, useMenus } from './data/menus';
 
-type State = {
+export type State = {
   signedIn: boolean;
   role: Role; // demo only: who you are viewing the app as
   session: Session;
@@ -14,12 +15,14 @@ type State = {
   swiggyLinked: boolean;
 };
 
-type Action =
+export type Action =
   | { type: 'signIn' }
   | { type: 'signOut' }
   | { type: 'setRole'; role: Role }
   | { type: 'savePick'; userId: string; items: PickLine[]; note: string }
   | { type: 'skip'; userId: string }
+  | { type: 'completePick'; userId: string; items: PickLine[]; note: string }
+  | { type: 'reopenPick'; userId: string }
   | { type: 'lock' }
   | { type: 'reopen' }
   | { type: 'startPlacing' }
@@ -27,6 +30,9 @@ type Action =
   | { type: 'placed'; orderRef: string }
   | { type: 'delivered' }
   | { type: 'handOut'; userId: string; done: boolean }
+  | { type: 'arrive'; restaurantId: string; done: boolean }
+  | { type: 'finishLunch' }
+  | { type: 'check'; key: string; done: boolean }
   | { type: 'newSession'; cutoff: string; address: string; restaurantIds: string[] }
   | { type: 'updateOrg'; org: Partial<Org> }
   | { type: 'reset' };
@@ -59,6 +65,14 @@ function load(): State {
   return initial();
 }
 
+// When someone changes their pick, their own review mark and the marks of every restaurant in the old or new
+// pick are cleared, so the host checks them again.
+function uncheck(s: State, userId: string, items: PickLine[]): Session {
+  const touched = [...(s.picks[userId]?.items ?? []), ...items].map((l) => `r:${dishById(l.dishId)?.restaurant.id}`);
+  const checked = Object.fromEntries(Object.entries(s.session.checked ?? {}).filter(([k]) => k !== `p:${userId}` && !touched.includes(k)));
+  return { ...s.session, checked };
+}
+
 function reducer(s: State, a: Action): State {
   switch (a.type) {
     case 'signIn':
@@ -72,10 +86,27 @@ function reducer(s: State, a: Action): State {
       return {
         ...s,
         picks: { ...s.picks, [a.userId]: { items: a.items, note: a.note, skipped: false, updatedAt: DEMO_NOW } },
+        session: uncheck(s, a.userId, a.items),
       };
     case 'skip':
-      if (s.session.status !== 'open') return s;
-      return { ...s, picks: { ...s.picks, [a.userId]: { items: [], note: '', skipped: true, updatedAt: DEMO_NOW } } };
+      if (s.session.status !== 'open' || s.picks[a.userId]?.done) return s;
+      return { ...s, picks: { ...s.picks, [a.userId]: { items: [], note: '', skipped: true, updatedAt: DEMO_NOW, done: true } }, session: uncheck(s, a.userId, []) };
+    case 'completePick':
+      if (s.session.status !== 'open' || s.picks[a.userId]?.done || !a.items.length) return s;
+      return {
+        ...s,
+        picks: { ...s.picks, [a.userId]: { items: a.items, note: a.note, skipped: false, updatedAt: DEMO_NOW, done: true } },
+        session: uncheck(s, a.userId, a.items),
+      };
+    case 'reopenPick': {
+      // The host lets them change it: a completed order becomes editable, a skipped day goes back to "to pick".
+      const pick = s.picks[a.userId];
+      if (s.session.status !== 'open' || !pick) return s;
+      const picks = { ...s.picks };
+      if (pick.skipped) delete picks[a.userId];
+      else picks[a.userId] = { ...pick, done: false };
+      return { ...s, picks };
+    }
     case 'lock':
       return s.session.status === 'open' ? { ...s, session: { ...s.session, status: 'locked' } } : s;
     case 'reopen':
@@ -88,6 +119,18 @@ function reducer(s: State, a: Action): State {
       return { ...s, session: { ...s.session, status: 'placed', orderRef: a.orderRef } };
     case 'delivered':
       return { ...s, session: { ...s.session, status: 'delivered' } };
+    case 'check':
+      return { ...s, session: { ...s.session, checked: { ...s.session.checked, [a.key]: a.done } } };
+    case 'arrive': {
+      // Collected per restaurant; once every restaurant's food is in, the lunch has arrived.
+      const arrived = { ...s.session.arrived, [a.restaurantId]: a.done };
+      const all = summarise(s.session, s.picks).cart.every((g) => arrived[g.restaurantId]);
+      const status = s.session.status === 'placed' && all ? 'delivered' : s.session.status;
+      return { ...s, session: { ...s.session, arrived, status } };
+    }
+    case 'finishLunch':
+      // The demo's one lunch ends: completed after hand-out, or simply closed to start the next.
+      return { ...s, session: { ...s.session, completed: true } };
     case 'handOut':
       return { ...s, session: { ...s.session, handedOut: { ...s.session.handedOut, [a.userId]: a.done } } };
     case 'newSession':
@@ -109,7 +152,26 @@ function reducer(s: State, a: Action): State {
   }
 }
 
-const Ctx = createContext<{ state: State; dispatch: (a: Action) => void } | null>(null);
+// What the signed-in app knows when it runs on the API instead of the demo data.
+export type Live = {
+  lunchId: string | null; // null: no lunch running
+  canHost: boolean;
+  canReopen: boolean; // let someone who completed their order or skipped pick again
+  canManageMembers: boolean; // make people hosts
+  orders: ApiOrder[]; // the lunch's Swiggy checkouts, once picks lock
+  busy: boolean; // a change is on its way to the API
+};
+
+export type Store = {
+  state: State;
+  dispatch: (a: Action) => void | Promise<unknown>; // on the API, some actions finish later
+  people: Person[]; // the whole team
+  meId: string;
+  now: string; // HH:MM
+  live: Live | null; // null: the demo
+};
+
+export const StoreContext = createContext<Store | null>(null);
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, undefined, load);
@@ -120,11 +182,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       /* ignore */
     }
   }, [state]);
-  return <Ctx.Provider value={{ state, dispatch }}>{children}</Ctx.Provider>;
+  const value = useMemo(() => ({ state, dispatch, people: PEOPLE, meId: ME_ID, now: DEMO_NOW, live: null }), [state]);
+  return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }
 
 export function useStore() {
-  const v = useContext(Ctx);
+  const v = useContext(StoreContext);
   if (!v) throw new Error('useStore outside StoreProvider');
   return v;
 }
@@ -135,12 +198,13 @@ export type CartLine = { dishId: string; name: string; price: number; veg: boole
 export type CartGroup = { restaurantId: string; name: string; lines: CartLine[]; dishes: number; total: number };
 
 export function useLunch() {
-  const { state } = useStore();
+  const { state, people } = useStore();
   const menus = useMenus(); // dishes from live menus can arrive after the picks
-  return useMemo(() => summarise(state.session, state.picks), [state.session, state.picks, menus]);
+  return useMemo(() => summarise(state.session, state.picks, people), [state.session, state.picks, people, menus]);
 }
 
-export function summarise(session: Session, picks: Record<string, Pick>) {
+export function summarise(session: Session, picks: Record<string, Pick>, people: Person[] = PEOPLE) {
+  const PEOPLE = people;
   const picked = PEOPLE.filter((p) => picks[p.id] && !picks[p.id].skipped && picks[p.id].items.length > 0);
   const skipped = PEOPLE.filter((p) => picks[p.id]?.skipped);
   const waiting = PEOPLE.filter((p) => !picks[p.id] || (!picks[p.id].skipped && picks[p.id].items.length === 0));
@@ -189,4 +253,3 @@ export function summarise(session: Session, picks: Record<string, Pick>) {
 export const offeredRestaurants = (session: Session) =>
   session.restaurantIds.map((id) => restaurantById(id)).filter((r) => !!r);
 
-export const isMe = (id: string) => id === ME_ID;

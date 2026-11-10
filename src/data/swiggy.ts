@@ -1,61 +1,16 @@
-// Live Swiggy restaurants and menus from the Django API (apps/catalog in lunch-backend).
-// The API answers in paise; screens work in rupees. Everything loaded is kept with
-// `remember` so the rest of the app finds it through restaurantById and dishById.
+// Live Swiggy restaurants and menus from the Django API (apps/catalog in lunch-backend), fetched
+// and cached with TanStack Query (src/api/queries.ts). The API answers in paise; screens work in
+// rupees. Everything loaded is kept with `remember` so the rest of the app finds it through
+// restaurantById and dishById.
 
-import { useCallback, useEffect, useState } from 'react';
-import { remember, restaurantById, type Category, type Restaurant } from './menus';
+import { useEffect, useState } from 'react';
+import { useDishesQuery, useMenuQuery, useRestaurantsQuery } from '@/api/queries';
+import type { ApiDish, ApiMenu, ApiRestaurant } from '@/api/types';
+import { remember, restaurantById, type Category, type Dish, type Restaurant } from './menus';
 
 type Place = { lat: number; lng: number };
 
-type ApiRestaurant = {
-  id: string;
-  name: string;
-  area: string | null;
-  cuisines: string[];
-  rating: number | string | null;
-  delivery_time: string | null;
-  distance_km: number | null;
-  open: boolean | null;
-  image_url: string | null;
-};
-
-type ApiItem = {
-  id: string;
-  name: string;
-  price_paise: number | null;
-  veg: boolean;
-  description: string | null;
-  in_stock: boolean;
-  image_url: string | null;
-};
-
-type ApiMenu = { restaurant: ApiRestaurant; categories: { name: string; items: ApiItem[] }[] };
-
-// Firebase sign-in will set this; until then requests go without a token.
-let idToken: string | null = null;
-export const setIdToken = (token: string | null) => {
-  idToken = token;
-};
-
-async function get<T>(path: string, params: Record<string, string | number>): Promise<T> {
-  const query = new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)]));
-  const response = await fetch(`/api/${path}?${query}`, {
-    headers: idToken ? { Authorization: `Bearer ${idToken}` } : {},
-  });
-  if (!response.ok) {
-    const detail = await response.json().then((b) => b?.detail, () => undefined);
-    const why =
-      response.status === 401 || response.status === 403
-        ? 'Sign in to load live restaurants.'
-        : typeof detail === 'string'
-          ? detail
-          : `The lunch API answered ${response.status}.`;
-    throw new Error(why);
-  }
-  return response.json();
-}
-
-const toRestaurant = (r: ApiRestaurant, categories: Category[] = []): Restaurant => ({
+export const toRestaurant = (r: ApiRestaurant, categories: Category[] = []): Restaurant => ({
   id: r.id,
   name: r.name,
   area: r.area ?? undefined,
@@ -89,65 +44,77 @@ export const isSwiggyId = (id: string) => /^\d+$/.test(id);
 
 export type Load = { status: 'loading' | 'ready' | 'error'; error?: string; retry: () => void };
 
+const statusOf = (q: { isPending: boolean; isError: boolean }): Load['status'] =>
+  q.isError ? 'error' : q.isPending ? 'loading' : 'ready';
+
+// Waits until typing settles before the value changes.
+function useSettled(value: string, ms: number) {
+  const [settled, setSettled] = useState(value);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSettled(value), ms);
+    return () => window.clearTimeout(timer);
+  }, [value, ms]);
+  return settled;
+}
+
 // Restaurants near the office, or matching `query` (two letters or more) when given.
 // With `skip`, nothing is fetched.
 export function useRestaurants(place: Place, query = '', skip = false): Load & { restaurants: Restaurant[] } {
-  const q = query.trim();
-  const [state, setState] = useState<{ status: Load['status']; error?: string; restaurants: Restaurant[] }>({
-    status: 'loading',
-    restaurants: [],
-  });
-  const [attempt, setAttempt] = useState(0);
-  const retry = useCallback(() => setAttempt((n) => n + 1), []);
+  const q = useSettled(query.trim(), query.trim() ? 300 : 0);
+  const asked = !skip && q.length !== 1; // nothing asked for yet, or wait for a second letter
+  const result = useRestaurantsQuery(place, q, asked);
+  const found = result.data?.restaurants.map((r) => toRestaurant(r)) ?? [];
 
   useEffect(() => {
-    if (skip || q.length === 1) return; // nothing asked for yet, or wait for a second letter
-    let current = true;
-    setState((s) => ({ ...s, status: 'loading', error: undefined }));
-    const timer = window.setTimeout(
-      () => {
-        get<{ restaurants: ApiRestaurant[] }>('restaurants', { lat: place.lat, lng: place.lng, ...(q && { q }) })
-          .then(({ restaurants }) => {
-            const found = restaurants.map((r) => toRestaurant(r));
-            remember(found);
-            if (current) setState({ status: 'ready', restaurants: found.map((r) => restaurantById(r.id) ?? r) });
-          })
-          .catch((e: Error) => current && setState({ status: 'error', error: e.message, restaurants: [] }));
-      },
-      q ? 300 : 0, // let typing settle before searching
-    );
-    return () => {
-      current = false;
-      window.clearTimeout(timer);
-    };
-  }, [place.lat, place.lng, q, skip, attempt]);
+    if (result.data) remember(result.data.restaurants.map((r) => toRestaurant(r)));
+  }, [result.data]);
 
-  return { ...state, retry };
+  return {
+    status: asked ? statusOf(result) : 'loading',
+    error: result.error?.message,
+    retry: () => void result.refetch(),
+    // A listing has no dishes; prefer what is already known, which may include a loaded menu.
+    restaurants: found.map((r) => restaurantById(r.id) ?? r),
+  };
 }
 
 // Loads one restaurant's live menu. Sample restaurants without a Swiggy id are ready as they are.
 export function useMenu(restaurantId: string, place: Place): Load {
-  const [state, setState] = useState<{ status: Load['status']; error?: string }>({ status: 'loading' });
-  const [attempt, setAttempt] = useState(0);
-  const retry = useCallback(() => setAttempt((n) => n + 1), []);
+  const live = isSwiggyId(restaurantId);
+  const result = useMenuQuery(restaurantId, place, live);
 
   useEffect(() => {
-    if (!isSwiggyId(restaurantId)) {
-      setState({ status: 'ready' });
-      return;
-    }
-    let current = true;
-    setState({ status: 'loading' });
-    get<ApiMenu>(`restaurants/${restaurantId}/menu`, place)
-      .then((menu) => {
-        remember([toRestaurant(menu.restaurant, toCategories(restaurantId, menu))]);
-        if (current) setState({ status: 'ready' });
-      })
-      .catch((e: Error) => current && setState({ status: 'error', error: e.message }));
-    return () => {
-      current = false;
-    };
-  }, [restaurantId, place.lat, place.lng, attempt]);
+    if (result.data) remember([toRestaurant(result.data.restaurant, toCategories(restaurantId, result.data))]);
+  }, [result.data, restaurantId]);
 
-  return { ...state, retry };
+  return {
+    status: live ? statusOf(result) : 'ready',
+    error: result.error?.message,
+    retry: () => void result.refetch(),
+  };
+}
+
+export type FoundDish = { dish: Dish; restaurant: Restaurant };
+
+const toFound = (d: ApiDish): FoundDish | null =>
+  d.price_paise === null
+    ? null
+    : {
+        dish: { id: `${d.restaurant.id}:${d.id}`, name: d.name, price: d.price_paise / 100, veg: d.veg, inStock: d.in_stock !== false, photo: d.image_url ?? undefined },
+        restaurant: toRestaurant(d.restaurant),
+      };
+
+// Dishes matching `query` across Swiggy near the office (two letters or more), each with its restaurant.
+export function useDishSearch(place: Place, query: string): Load & { dishes: FoundDish[]; settled: boolean } {
+  const trimmed = query.trim();
+  const q = useSettled(trimmed, 300);
+  const asked = q.length >= 2;
+  const result = useDishesQuery(place, q, asked);
+  return {
+    status: asked ? statusOf(result) : 'ready',
+    error: result.error?.message,
+    retry: () => void result.refetch(),
+    dishes: asked ? (result.data?.dishes.map(toFound).filter((x): x is FoundDish => !!x) ?? []) : [],
+    settled: q === trimmed && !result.isFetching,
+  };
 }
