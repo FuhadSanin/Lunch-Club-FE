@@ -54,7 +54,9 @@ export default function App() {
 
 function Shell() {
   const { state, live } = useStore();
-  const [route] = useHashRoute();
+  const [hashRoute] = useHashRoute();
+  // A shared lunch link (#/lunch/<id>) opens Pick my lunch for that lunch.
+  const route = hashRoute.replace(/^\/lunch\/[^/]+$/, '/pick');
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => setMenuOpen(false), [route]);
