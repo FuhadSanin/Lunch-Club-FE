@@ -24,6 +24,8 @@ import NewLunch from './screens/NewLunch';
 import Settings from './screens/Settings';
 import Landing from './landing/Landing';
 import { LiveStore } from './live';
+import { JoinParty } from './screens/JoinParty';
+import { ActivePartyCard, useActiveParty } from './components/party-card';
 import { NoLunch } from './screens/NoLunch';
 
 // Everyone: the dashboard and their own pick. Hosts also run the lunch, step by step (src/lib/steps.ts),
@@ -89,6 +91,8 @@ function Shell() {
   // steps after "start" have nothing to show yet.
   const noLunch = live ? !live.lunchId : !!state.session.completed;
   if (noLunch && !['/new', '/settings'].includes(current)) screen = <NoLunch canHost={live ? live.canHost : state.role === 'host'} />;
+  // A shared link to a party not joined yet: ask first.
+  // (a shared link to a party not joined yet asks first: the JoinParty pop-up below)
 
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-[248px_minmax(0,1fr)]">
@@ -169,6 +173,7 @@ function Shell() {
           </AnimatePresence>
         </div>
       </main>
+      {live?.invite && <JoinParty invite={live.invite} />}
     </div>
   );
 }
@@ -181,6 +186,7 @@ function Sidebar({ current, onClose }: { current: string; onClose?: () => void }
   const me = personById(ME_ID)!;
   const layoutKey = onClose ? 'nav-pill-drawer' : 'nav-pill';
   const host = state.role === 'host';
+  const party = useActiveParty(); // a personal party you're in, shown with its way out
 
   const link = (to: string, on: boolean, body: ReactNode, label?: string, locked?: string) =>
     locked ? (
@@ -224,19 +230,19 @@ function Sidebar({ current, onClose }: { current: string; onClose?: () => void }
         )}
       </div>
 
-      <Card size="sm" className="mx-1 mb-5 gap-0 px-3 py-2.5">
-        {live?.personal ? (
-          <>
-            <div className="truncate text-sm font-semibold">{live.lunchName || `${live.hostName.split(' ')[0]}'s party`}</div>
-            <div className="truncate text-xs text-mute">{live.lunchName ? `${live.hostName.split(' ')[0]}'s party` : 'Personal lunch'} · live</div>
-          </>
-        ) : (
-          <>
-            <div className="text-sm font-semibold">{state.org.team}</div>
-            <div className="truncate text-xs text-mute">{live ? `${state.org.emailDomain} · live` : `${state.org.name} · demo data`}</div>
-          </>
-        )}
-      </Card>
+      {/* A personal party shows a card only while you're in one (with its way out); a company shows its team. */}
+      {live?.personal ? (
+        party && (
+          <Card size="sm" className="mx-1 mb-5 gap-0 px-3 py-2.5">
+            <ActivePartyCard lunch={party} onNavigate={onClose} />
+          </Card>
+        )
+      ) : (
+        <Card size="sm" className="mx-1 mb-5 gap-0 px-3 py-2.5">
+          <div className="text-sm font-semibold">{state.org.team}</div>
+          <div className="truncate text-xs text-mute">{live ? `${state.org.emailDomain} · live` : `${state.org.name} · demo data`}</div>
+        </Card>
+      )}
 
       <nav className="grid gap-0.5" aria-label="Your lunch">
         {MAIN.map((n) => link(n.to, current === n.to, (
@@ -253,7 +259,7 @@ function Sidebar({ current, onClose }: { current: string; onClose?: () => void }
       {live?.personal && live.canHost && !host && link('/new', current === '/new', (
         <>
           <Icon name="today" className={current === '/new' ? 'text-ink' : 'text-mute'} />
-          My lunches
+          {party ? 'My party' : 'Start a party'}
         </>
       ))}
 

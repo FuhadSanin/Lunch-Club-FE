@@ -36,7 +36,10 @@ export default function PickScreen() {
   // A lunch that doesn't say which restaurants it offers (started in another browser) offers the ones
   // near the office within the company's distance. Fetched here only, never on other pages.
   const unknownOffer = !!live && !session.restaurantIds.length;
-  const nearby = useRestaurants(state.org.office, '', !unknownOffer);
+  // Everything is looked up around where the lunch delivers, the same for everyone in it.
+  const place = live?.place ?? state.org.office;
+  const where = (session.address || '').split(',')[0].trim();
+  const nearby = useRestaurants(place, '', !unknownOffer);
   const restaurants = unknownOffer
     ? restaurantsWithin(state.org.radiusKm, nearby.restaurants)
     : offeredRestaurants(session).filter((r) => !!r);
@@ -52,7 +55,7 @@ export default function PickScreen() {
   // null: the restaurant cards; otherwise that restaurant's menu.
   const [openId, setOpenId] = useState<string | null>(null);
   const current = openId ? restaurantById(openId) : undefined;
-  const menu = useMenu(openId ?? '', state.org.office);
+  const menu = useMenu(openId ?? '', place);
   const [menuQuery, setMenuQuery] = useState('');
   const openRestaurant = (id: string) => {
     setOpenId(id);
@@ -180,6 +183,12 @@ export default function PickScreen() {
 
   return (
     <>
+      {where && (
+        <div className="mb-3 inline-flex max-w-full items-center gap-2 rounded-full bg-muted px-3 py-1.5 text-[13px] text-muted-foreground">
+          <Icon name="pin" size={14} />
+          <span className="truncate">Restaurants near <span className="font-medium text-foreground">{where}</span></span>
+        </div>
+      )}
       <PageTitle
         title="Pick my lunch"
         sub={
@@ -203,7 +212,7 @@ export default function PickScreen() {
           <CardContent>
             <FoodSearch
               restaurants={restaurants}
-              place={state.org.office}
+              place={place}
               vegOnly={vegOnly}
               disabled={!open}
               qty={qty}
@@ -332,7 +341,7 @@ export default function PickScreen() {
                 >
                   <div className="mt-6 mb-3 flex flex-wrap items-center justify-between gap-3">
                     <h2 id="today-title" className="text-sm font-semibold">
-                      Today's restaurants <span className="font-normal text-muted-foreground num">{restaurants.length}</span>
+                      {where ? <>Restaurants near {where}</> : "Today's restaurants"} <span className="font-normal text-muted-foreground num">{restaurants.length}</span>
                     </h2>
                     <VegSwitch id="veg-all" checked={vegOnly} onChange={setVegOnly} />
                   </div>

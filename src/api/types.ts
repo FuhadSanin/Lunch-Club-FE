@@ -61,8 +61,13 @@ export type ApiLunch = {
   delivery_lat?: number | null;
   delivery_lng?: number | null;
   org_kind?: 'company' | 'personal';
+  offered_restaurants?: ApiOffered[]; // the list the host offered, the same for everyone in the lunch
+  closed_at?: string | null; // the host closed it after the food arrived: over for everyone
   joined?: boolean; // you are a guest in someone else's party
 };
+
+// A restaurant on a lunch's list, as Swiggy showed it to the host (no menu).
+export type ApiOffered = { id: string; name: string; area?: string; cuisines?: string[]; rating?: number; eta?: string; distance_km?: number; photo?: string };
 
 export type ApiItem = {
   id: string;
@@ -114,6 +119,7 @@ export type ApiCart = {
 // GET /api/lunches/<id>: the full board.
 export type ApiBoard = ApiLunch & {
   delivery_address: string;
+  people?: (ApiPerson & { email: string })[]; // the host, then everyone who joined by link, picked or not
   items: ApiItem[];
   skipped: ApiPerson[];
   completed: ApiPerson[]; // completed their order or skipped: final until the host reopens them

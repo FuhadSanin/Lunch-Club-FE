@@ -17,6 +17,7 @@ import { PageTitle } from '@/components/PageTitle';
 import { spring } from '@/lib/cn';
 import { StepTracker, useLunchSteps } from '@/components/steps';
 import { STEPS } from '@/lib/steps';
+import { ShareLunch, lunchLink } from '@/components/share-lunch';
 
 const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
 const localDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -86,6 +87,7 @@ export default function Home() {
         sub={live?.lunchName ? `${live.lunchName}. ${statusLine}` : statusLine}
         actions={
           <>
+            {isOpen && <ShareLunch link={lunchLink(live?.lunchId)} cutoff={closesAt} name={live?.lunchName} />}
             {isOpen && (
               <Button asChild>
                 <a href="#/pick">{mine?.done ? 'See my order' : mine?.items.length ? 'Finish my order' : 'Pick my lunch'}</a>
