@@ -63,13 +63,21 @@ const readPin = () => {
 
 const firstName = (name: string) => name.trim().split(/\s+/)[0] || 'My';
 
+const safeUrl = (u: string) => {
+  try {
+    return encodeURI(decodeURI(u));
+  } catch {
+    return u.replace(/ /g, '%20');
+  }
+};
 // The offered list travels with the lunch, so it is the same in every browser.
 const toOffered = (r: Restaurant): ApiOffered => ({
   id: r.id, name: r.name,
   ...(r.area && { area: r.area }), ...(r.cuisines?.length && { cuisines: r.cuisines.slice(0, 20) }),
   ...(r.rating && { rating: r.rating }), ...(r.eta && { eta: r.eta }),
   ...(r.distanceKm !== undefined && { distance_km: Math.round(r.distanceKm * 100) / 100 }),
-  ...(r.photo?.startsWith('http') && { photo: r.photo }),
+  // Swiggy image links can hold spaces ("... (1).jpg"); the server wants a proper URL.
+  ...(r.photo?.startsWith('http') && { photo: safeUrl(r.photo) }),
 });
 const fromOffered = (r: ApiOffered): Restaurant => ({
   id: r.id, name: r.name, area: r.area, cuisines: r.cuisines, rating: r.rating, eta: r.eta, distanceKm: r.distance_km, photo: r.photo, categories: [],
