@@ -53,6 +53,17 @@ const currentLunch = (lunches: ApiLunch[] = [], extras: Record<string, Extras>) 
     (l) => l.status === 'delivered' && !extras[l.id]?.completed && Date.now() - Date.parse(l.cutoff_at) < 864e5,
   );
 
+// A shared lunch link: #/lunch/<the lunch's id>. Opening it makes that lunch the one this browser shows.
+const LINK = /^\/(?:lunch|pick)\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
+const PIN_KEY = 'lunchboard-linked-lunch';
+const readPin = () => {
+  try {
+    return window.localStorage.getItem(PIN_KEY);
+  } catch {
+    return null;
+  }
+};
+
 const toPerson = (p: ApiPerson & { email?: string }): Person => ({ id: p.id, name: p.name, email: p.email ?? '', hue: hueOf(p.id) });
 
 // Picks store a restaurant and dish by name. Find the dish in a loaded menu, or make a stand-in so the
@@ -180,7 +191,23 @@ function LiveBridge({ me, children }: { me: ApiMe; children: ReactNode }) {
   const members = useMembers(route !== '/new');
   const lunches = useLunches();
   const [extras, updateExtras] = useExtras();
-  const lunch = currentLunch(lunches.data, extras);
+  // The lunch from a shared link wins; one opened earlier stays while it is still running.
+  const [pinned, setPinned] = useState(readPin);
+  const pin = (id: string) => {
+    setPinned(id);
+    try {
+      window.localStorage.setItem(PIN_KEY, id);
+    } catch {
+      /* storage unavailable: the link still works until the page closes */
+    }
+  };
+  const linkedId = LINK.exec(route)?.[1].toLowerCase();
+  useEffect(() => {
+    if (linkedId) pin(linkedId);
+  }, [linkedId]);
+  const lunch =
+    lunches.data?.find((l) => l.id === (linkedId ?? pinned) && (linkedId || RUNNING.has(l.status))) ??
+    currentLunch(lunches.data, extras);
   const board = useBoard(lunch?.id);
   const now = useClock();
   const busy = useIsMutating() > 0;
@@ -307,7 +334,11 @@ function LiveBridge({ me, children }: { me: ApiMe; children: ReactNode }) {
       case 'newSession':
         return start
           .mutateAsync({ cutoff_at: cutoffAt(a.cutoff), delivery_address: a.address })
-          .then((b) => updateExtras(b.id, (e) => ({ ...e, restaurantIds: a.restaurantIds })))
+          .then((b) => {
+            updateExtras(b.id, (e) => ({ ...e, restaurantIds: a.restaurantIds }));
+            pin(b.id);
+            return b.id; // the id is what the link to share is made from
+          })
           .catch((e: Error) => {
             fail("Couldn't start the lunch")(e);
             throw e;

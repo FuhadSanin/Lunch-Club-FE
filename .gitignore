@@ -5,3 +5,4 @@ dist
 # promo: local TTS model and Python env
 promo/.venv
 promo/audio/kokoro/
+promo/.venv-cb

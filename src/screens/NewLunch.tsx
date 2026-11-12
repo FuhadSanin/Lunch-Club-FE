@@ -68,7 +68,11 @@ export default function NewLunch() {
   const [started, setStarted] = useState(false);
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
-  const link = `${window.location.origin}${window.location.pathname}#/pick`;
+  const [newAddr, setNewAddr] = useState('');
+  const [createdId, setCreatedId] = useState<string>();
+  // Each lunch has its own link, made from its id: opening it takes anyone in the company to that lunch.
+  const linkFor = (id?: string) => `${window.location.origin}${window.location.pathname}#/${live && id ? `lunch/${id}` : 'pick'}`;
+  const link = linkFor(createdId ?? live?.lunchId ?? undefined);
   useMenus();
 
   // Swiggy's restaurants around the office; the sample ones if the API can't be reached.
@@ -86,6 +90,26 @@ export default function NewLunch() {
     ...(searching ? search.restaurants : pool).filter((r) => !picked.includes(r.id)),
   ];
 
+  // The saved addresses, plus one just added that the API hasn't echoed back yet.
+  const addresses = !address || state.org.addresses.includes(address) ? state.org.addresses : [address, ...state.org.addresses];
+  const addAddress = () => {
+    const a = newAddr.trim();
+    if (!a) return;
+    if (!state.org.addresses.includes(a)) {
+      void dispatch({ type: 'updateOrg', org: { addresses: [...state.org.addresses, a] } });
+      toast.success('Address added', { description: a });
+    }
+    setAddress(a);
+    setNewAddr('');
+    setError('');
+  };
+
+  const setRadiusKm = (v: number) => {
+    if (Number.isNaN(v)) return;
+    setRadius(Math.min(RADIUS_RANGE.max, Math.max(RADIUS_RANGE.min, Math.round(v * 10) / 10)));
+    setError('');
+  };
+
   const toggle = (id: string) => {
     setError('');
     setPicked((c) => (c.includes(id) ? c.filter((x) => x !== id) : [...c, id]));
@@ -94,24 +118,30 @@ export default function NewLunch() {
   const start = (e: React.FormEvent) => {
     e.preventDefault();
     if (hasActive) return;
+    if (!address.trim()) {
+      setError('Add a delivery address first.');
+      return;
+    }
     if (!chosen.length) {
       setError(mode === 'nearby' ? `No restaurants within ${km(radius)}. Widen the range or choose them yourself.` : 'Choose at least one restaurant.');
       return;
     }
     setSending(true);
     Promise.resolve(dispatch({ type: 'newSession', cutoff, address, restaurantIds: chosen }))
-      .then(() => {
+      .then((id) => {
+        const url = linkFor(typeof id === 'string' ? id : undefined);
+        if (typeof id === 'string') setCreatedId(id);
         setStarted(true);
         celebrate({ x: innerWidth / 2, y: innerHeight / 2, title: 'Lunch started', sub: `Picks close at ${cutoff}. Share the link and the team can pick.`, tone: 'gold', icon: 'megaphone', sound: 'start' });
         // The page moves on to Review & lock; the link to share stays one tap away.
-        toast('Share the lunch with the team', { description: link, duration: 12000, action: { label: 'Copy link', onClick: () => void copy() } });
+        toast.success('Lunch started. Share it with the team', { description: url, duration: 12000, action: { label: 'Copy link', onClick: () => void copy(url) } });
       }, () => undefined) // a failure is already on screen as a toast
       .finally(() => setSending(false));
   };
 
-  const copy = async () => {
+  const copy = async (url = link) => {
     try {
-      await navigator.clipboard.writeText(link);
+      await navigator.clipboard.writeText(url);
       toast.success('Link copied', { description: 'Paste it in the team chat.' });
     } catch {
       toast.error("Couldn't copy the link", { description: 'Select it and copy it by hand.' });
@@ -138,7 +168,7 @@ export default function NewLunch() {
               <CardContent className="grid gap-5">
                 <div className="flex gap-2 max-sm:flex-col">
                   <Input name="lunch-link" readOnly spellCheck={false} value={link} aria-label="Lunch link" className="h-10 font-mono text-[13px]" />
-                  <Button variant="outline" onClick={copy}>Copy link</Button>
+                  <Button variant="outline" onClick={() => void copy()}>Copy link</Button>
                 </div>
                 <Button asChild className="w-fit"><a href="#/">Go to the live board</a></Button>
               </CardContent>
@@ -155,7 +185,7 @@ export default function NewLunch() {
                   <Label htmlFor="share-link" className="text-[13px]">Share this link with the team</Label>
                   <div className="flex gap-2 max-sm:flex-col">
                     <Input id="share-link" readOnly spellCheck={false} value={link} onFocus={(e) => e.currentTarget.select()} className="h-10 bg-background font-mono text-[13px]" />
-                    <Button variant="outline" onClick={copy}>Copy link</Button>
+                    <Button variant="outline" onClick={() => void copy()}>Copy link</Button>
                   </div>
                   <p className="text-xs text-muted-foreground">It opens Pick my lunch, so everyone can choose before the cutoff.</p>
                 </div>
@@ -190,6 +220,21 @@ export default function NewLunch() {
                       <div className="flex items-baseline justify-between gap-3">
                         <FieldLabel htmlFor="radius">Within {km(radius)} of the office</FieldLabel>
                         <span className="text-[13px] text-muted-foreground num">{inRange.length} in range</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          inputMode="decimal"
+                          name="radius-km"
+                          aria-label="Distance in km"
+                          min={RADIUS_RANGE.min}
+                          max={RADIUS_RANGE.max}
+                          step={0.1}
+                          value={radius}
+                          onChange={(e) => setRadiusKm(e.target.valueAsNumber)}
+                          className="h-9 w-24 num"
+                        />
+                        <span className="text-[13px] text-muted-foreground">km, from {RADIUS_RANGE.min} to {RADIUS_RANGE.max}</span>
                       </div>
                       <Slider
                         id="radius"
@@ -292,19 +337,33 @@ export default function NewLunch() {
                   <FieldLabel htmlFor="addr">Deliver to</FieldLabel>
                   <Select value={address} onValueChange={setAddress}>
                     <SelectTrigger id="addr" className="w-full">
-                      <SelectValue>
+                      <SelectValue placeholder="Choose or add an address">
                         {splitAddress(address)[0]}
                         {splitAddress(address)[1] && <span className="text-muted-foreground"> · {splitAddress(address)[1]}</span>}
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
-                      {state.org.addresses.map((a) => {
+                      {addresses.map((a) => {
                         const [place, area] = splitAddress(a);
                         return <SelectItem key={a} value={a} description={area || undefined}>{place}</SelectItem>;
                       })}
                     </SelectContent>
                   </Select>
-                  <FieldDescription>Addresses come from your Swiggy account. Add more in Settings.</FieldDescription>
+                  <div className="flex gap-2">
+                    <Input
+                      id="new-addr"
+                      name="new-address"
+                      autoComplete="off"
+                      value={newAddr}
+                      onChange={(e) => setNewAddr(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addAddress(); } }}
+                      placeholder="Type a new address…"
+                      aria-label="New delivery address"
+                      className="h-10"
+                    />
+                    <Button type="button" variant="outline" onClick={addAddress} disabled={!newAddr.trim()}>Add</Button>
+                  </div>
+                  <FieldDescription>Pick a saved address or type a new one. It must match an address on the host's Swiggy account.</FieldDescription>
                 </Field>
                 <FieldDescription>{live ? 'The team can pick as soon as it starts, until the cutoff.' : "Starting a new lunch replaces today's demo lunch and clears its picks."}</FieldDescription>
                 <Button size="lg" type="submit" disabled={sending}>{sending ? "Starting…" : "Start the lunch"}</Button>
