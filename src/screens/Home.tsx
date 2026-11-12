@@ -42,7 +42,8 @@ export default function Home() {
   const closesAt = days === 1 ? `tomorrow at ${session.cutoff}` : session.cutoff;
   const isOpen = session.status === 'open';
   const hour = Number(DEMO_NOW.slice(0, 2));
-  const hello = hour < 12 ? 'Morning' : 'Afternoon';
+  const hello = hour < 12 ? 'Morning' : hour < 17 ? 'Afternoon' : 'Evening';
+  const first = PEOPLE.find((p) => p.id === ME_ID)?.name.split(/\s+/)[0] || org.team;
 
   const statusLine = isOpen
     ? `${lunch.picked.length} of ${lunch.team} have picked. Picks close ${closesAt}, ${minsLeft > 0 ? `in ${until(minsLeft)}` : 'any moment now'}.`
@@ -81,8 +82,8 @@ export default function Home() {
     <>
       <PageTitle
         large
-        title={<>{hello}, {org.team}.</>}
-        sub={statusLine}
+        title={<>{hello}, {first}.</>}
+        sub={live?.lunchName ? `${live.lunchName}. ${statusLine}` : statusLine}
         actions={
           <>
             {isOpen && (
@@ -190,6 +191,7 @@ export default function Home() {
                             {p.id === session.hostId && <Badge variant="info" className="flex-none">Host</Badge>}
                             {pk?.done && !pk.skipped && <Badge variant="success" className="flex-none">Done</Badge>}
                           </div>
+                          {p.email && <div className="truncate text-xs text-muted-foreground">{p.email}</div>}
                           <div className="truncate text-[13px] text-muted-foreground">
                             {pk?.skipped
                               ? 'Skipping today'

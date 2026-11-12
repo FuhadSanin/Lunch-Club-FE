@@ -1,5 +1,7 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { useState } from 'react';
+import { PlaceInput } from '@/components/PlaceInput';
+import { useLunches } from '@/api/queries';
 import { toast } from 'sonner';
 import { RADIUS_RANGE, type RestaurantMode } from '@/data/demo';
 import { allDishes, byDistance, restaurantById, restaurantsWithin, useMenus, type Restaurant } from '@/data/menus';
@@ -21,7 +23,7 @@ import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
 import { StepPage } from '@/components/steps';
 import { useCelebrate } from '@/components/celebrate';
 import { CloseLunchDialog, ExistingLunches, useRunningLunches } from './ExistingLunches';
-import type { ApiLunch } from '@/api/types';
+import type { ApiLunch, ApiPlace } from '@/api/types';
 import { cn, easeOut, spring } from '@/lib/cn';
 
 const km = (n: number) => `${n.toLocaleString('en-IN', { maximumFractionDigits: 1 })} km`;
@@ -47,7 +49,8 @@ export default function NewLunch() {
   const celebrate = useCelebrate();
   // One lunch at a time: while one is running, the form waits until it is closed.
   const { running } = useRunningLunches();
-  const hasActive = live ? !!live.lunchId || running.length > 0 : !state.session.completed;
+  // A company runs one lunch at a time. A personal party can start another while it is in others'.
+  const hasActive = live ? !live.personal && (!!live.lunchId || running.length > 0) : !state.session.completed;
   const [tab, setTab] = useState<'active' | 'history'>('active');
   // Closing: on the API through the close dialog (call off, or mark arrived); the demo just ends its lunch.
   const close = (l: ApiLunch) => {
@@ -63,12 +66,16 @@ export default function NewLunch() {
   const cutoffs = cutoffsFrom(DEMO_NOW);
   // 12:30 if it's still ahead today, otherwise about an hour from now.
   const [cutoff, setCutoff] = useState(() => (toMin('12:30') > toMin(DEMO_NOW) + 10 ? '12:30' : cutoffs[Math.min(3, cutoffs.length - 1)]));
-  const [address, setAddress] = useState(state.org.addresses[0] ?? '');
+  // A personal party has no saved office addresses: the host searches for the place instead.
+  const [address, setAddress] = useState(live?.personal ? '' : (state.org.addresses[0] ?? ''));
   const [picked, setPicked] = useState<string[]>(state.session.restaurantIds.slice(0, 3));
   const [started, setStarted] = useState(false);
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
   const [newAddr, setNewAddr] = useState('');
+  const [lunchName, setLunchName] = useState('');
+  // A place chosen from the suggestions: restaurants are offered near it instead of near the office.
+  const [place, setPlace] = useState<ApiPlace | null>(null);
   const [createdId, setCreatedId] = useState<string>();
   // Each lunch has its own link, made from its id: opening it takes anyone in the company to that lunch.
   const linkFor = (id?: string) => `${window.location.origin}${window.location.pathname}#/${live && id ? `lunch/${id}` : 'pick'}`;
@@ -76,10 +83,11 @@ export default function NewLunch() {
   useMenus();
 
   // Swiggy's restaurants around the office; the sample ones if the API can't be reached.
-  const nearby = useRestaurants(state.org.office);
+  const around = place ? { lat: place.lat, lng: place.lng } : state.org.office;
+  const nearby = useRestaurants(around);
   const pool = nearby.status === 'ready' ? nearby.restaurants : byDistance();
   const searching = query.trim().length >= 2;
-  const search = useRestaurants(state.org.office, query, !searching);
+  const search = useRestaurants(around, query, !searching);
 
   // Nearby: every restaurant within the range, nearest first.
   const inRange = restaurantsWithin(radius, pool);
@@ -92,16 +100,16 @@ export default function NewLunch() {
 
   // The saved addresses, plus one just added that the API hasn't echoed back yet.
   const addresses = !address || state.org.addresses.includes(address) ? state.org.addresses : [address, ...state.org.addresses];
-  const addAddress = () => {
-    const a = newAddr.trim();
-    if (!a) return;
-    if (!state.org.addresses.includes(a)) {
-      void dispatch({ type: 'updateOrg', org: { addresses: [...state.org.addresses, a] } });
-      toast.success('Address added', { description: a });
-    }
-    setAddress(a);
+  // A place picked from the suggestions: deliver there, and (for a company) keep it with the saved addresses.
+  const choosePlace = (p: ApiPlace) => {
+    setPlace(p);
+    setAddress(p.address);
     setNewAddr('');
     setError('');
+    if (!live?.personal && !state.org.addresses.includes(p.address)) {
+      void dispatch({ type: 'updateOrg', org: { addresses: [...state.org.addresses, p.address] } });
+      toast.success('Address saved', { description: p.address });
+    }
   };
 
   const setRadiusKm = (v: number) => {
@@ -118,8 +126,8 @@ export default function NewLunch() {
   const start = (e: React.FormEvent) => {
     e.preventDefault();
     if (hasActive) return;
-    if (!address.trim()) {
-      setError('Add a delivery address first.');
+    if (!address.trim() || (live?.personal && !place)) {
+      setError(live?.personal ? 'Search for the delivery place and choose it from the list.' : 'Add a delivery address first.');
       return;
     }
     if (!chosen.length) {
@@ -127,7 +135,7 @@ export default function NewLunch() {
       return;
     }
     setSending(true);
-    Promise.resolve(dispatch({ type: 'newSession', cutoff, address, restaurantIds: chosen }))
+    Promise.resolve(dispatch({ type: 'newSession', cutoff, address, restaurantIds: chosen, name: lunchName, lat: place?.lat, lng: place?.lng }))
       .then((id) => {
         const url = linkFor(typeof id === 'string' ? id : undefined);
         if (typeof id === 'string') setCreatedId(id);
@@ -153,7 +161,8 @@ export default function NewLunch() {
       <CloseLunchDialog lunch={closing} onOpenChange={(open) => !open && setClosing(null)} />
       <Tabs value={tab} onValueChange={(v) => setTab(v as 'active' | 'history')} className="gap-4">
         <PillTabsList label="Lunches" value={tab} options={[{ value: 'active', label: 'Active lunch' }, { value: 'history', label: 'History' }]} className="w-fit" />
-        <TabsContent value="active">
+        <TabsContent value="active" className="grid gap-4">
+          {live?.personal && <MyLunches />}
       <AnimatePresence mode="wait" initial={false}>
         {started ? (
           <motion.div key="started" initial={{ opacity: 0, scale: 0.97, y: 12 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ duration: 0.6, ease: easeOut }}>
@@ -334,37 +343,36 @@ export default function NewLunch() {
                   <TimePicker id="cutoff" value={cutoff} onValueChange={setCutoff} options={cutoffs} now={DEMO_NOW} />
                 </Field>
                 <Field>
-                  <FieldLabel htmlFor="addr">Deliver to</FieldLabel>
-                  <Select value={address} onValueChange={setAddress}>
-                    <SelectTrigger id="addr" className="w-full">
-                      <SelectValue placeholder="Choose or add an address">
-                        {splitAddress(address)[0]}
-                        {splitAddress(address)[1] && <span className="text-muted-foreground"> · {splitAddress(address)[1]}</span>}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {addresses.map((a) => {
-                        const [place, area] = splitAddress(a);
-                        return <SelectItem key={a} value={a} description={area || undefined}>{place}</SelectItem>;
-                      })}
-                    </SelectContent>
-                  </Select>
-                  <div className="flex gap-2">
-                    <Input
-                      id="new-addr"
-                      name="new-address"
-                      autoComplete="off"
-                      value={newAddr}
-                      onChange={(e) => setNewAddr(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addAddress(); } }}
-                      placeholder="Type a new address…"
-                      aria-label="New delivery address"
-                      className="h-10"
-                    />
-                    <Button type="button" variant="outline" onClick={addAddress} disabled={!newAddr.trim()}>Add</Button>
-                  </div>
-                  <FieldDescription>Pick a saved address or type a new one. It must match an address on the host's Swiggy account.</FieldDescription>
+                  <FieldLabel htmlFor="lunch-name">Lunch name <span className="font-normal text-muted-foreground">(optional)</span></FieldLabel>
+                  <Input id="lunch-name" name="lunch-name" autoComplete="off" maxLength={80} value={lunchName} onChange={(e) => setLunchName(e.target.value)} placeholder="Friday team lunch" className="h-10" />
                 </Field>
+                {live?.personal ? (
+                  <Field>
+                    <FieldLabel htmlFor="addr">Deliver to</FieldLabel>
+                    <PlaceInput id="addr" value={address} onChange={(t) => { setAddress(t); setPlace(null); }} onPlace={choosePlace} placeholder="Search your office, building or area…" />
+                    <FieldDescription>{place ? `Restaurants are offered near ${place.address}.` : 'Choose a place from the suggestions; restaurants are offered near it.'}</FieldDescription>
+                  </Field>
+                ) : (
+                  <Field>
+                    <FieldLabel htmlFor="addr">Deliver to</FieldLabel>
+                    <Select value={address} onValueChange={(a) => { setAddress(a); setPlace(null); }}>
+                      <SelectTrigger id="addr" className="w-full">
+                        <SelectValue placeholder="Choose or search an address">
+                          {splitAddress(address)[0]}
+                          {splitAddress(address)[1] && <span className="text-muted-foreground"> · {splitAddress(address)[1]}</span>}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {addresses.map((a) => {
+                          const [where, area] = splitAddress(a);
+                          return <SelectItem key={a} value={a} description={area || undefined}>{where}</SelectItem>;
+                        })}
+                      </SelectContent>
+                    </Select>
+                    <PlaceInput value={newAddr} onChange={setNewAddr} onPlace={choosePlace} placeholder="Or search a new address…" />
+                    <FieldDescription>{place ? `Restaurants are offered near ${place.address}.` : "Pick a saved address or search a new one. It must match an address on the host's Swiggy account."}</FieldDescription>
+                  </Field>
+                )}
                 <FieldDescription>{live ? 'The team can pick as soon as it starts, until the cutoff.' : "Starting a new lunch replaces today's demo lunch and clears its picks."}</FieldDescription>
                 <Button size="lg" type="submit" disabled={sending}>{sending ? "Starting…" : "Start the lunch"}</Button>
                 <p role="alert" className="text-[13px] text-destructive empty:hidden">{error}</p>
@@ -411,5 +419,49 @@ function LoadNote({ load, what, sample = true }: { load: { status: string; error
       <span>Couldn't load {what}{sample ? ', so these are sample restaurants' : ''}. {load.error}</span>
       <Button type="button" size="sm" variant="outline" onClick={load.retry}>Try again</Button>
     </div>
+  );
+}
+
+const STATUS_LABEL: Record<string, string> = { open: 'Picking', locked: 'Locked', confirmed: 'Ordering', placed: 'Ordered', delivered: 'Arrived', cancelled: 'Called off' };
+
+// A personal party's two sections, the first of them: the lunches you are in (ones you host and ones you
+// joined by link). The second is the form below, to start a new one.
+function MyLunches() {
+  const lunches = useLunches(true);
+  const { live } = useStore();
+  const running = (lunches.data ?? []).filter((l) => ['open', 'locked', 'confirmed', 'placed'].includes(l.status));
+  const copy = async (id: string) => {
+    const url = `${window.location.origin}${window.location.pathname}#/lunch/${id}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success('Link copied', { description: 'Send it to the people you are eating with.' });
+    } catch {
+      toast.error("Couldn't copy the link", { description: url });
+    }
+  };
+  return (
+    <Card aria-labelledby="mine-h">
+      <CardHeader>
+        <CardTitle id="mine-h">Lunches you're in</CardTitle>
+        <CardDescription>Ones you started and ones you joined by link. Open one to pick or run it.</CardDescription>
+        <CardAction><Badge variant={running.length ? 'info' : 'secondary'}>{running.length}</Badge></CardAction>
+      </CardHeader>
+      <CardContent className="grid gap-2">
+        {running.map((l) => (
+          <div key={l.id} className="flex flex-wrap items-center gap-3 rounded-xl bg-muted/60 p-3">
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-medium">{l.name || `${l.host.name.split(' ')[0]}'s lunch`}</span>
+              <span className="block truncate text-[13px] text-muted-foreground">
+                {l.joined ? `Hosted by ${l.host.name}` : 'You are hosting'} · {STATUS_LABEL[l.status] ?? l.status} · picks close {new Date(l.cutoff_at).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })}
+              </span>
+            </span>
+            {l.id === live?.lunchId && <Badge variant="secondary">Showing now</Badge>}
+            {!l.joined && <Button type="button" size="sm" variant="outline" onClick={() => void copy(l.id)}>Copy link</Button>}
+            <Button asChild size="sm"><a href={`#/lunch/${l.id}`}>Open</a></Button>
+          </div>
+        ))}
+        {!running.length && <p className="rounded-xl border border-dashed border-input p-4 text-sm text-muted-foreground">You're not in a lunch yet. Open a link someone sent you, or start one below.</p>}
+      </CardContent>
+    </Card>
   );
 }

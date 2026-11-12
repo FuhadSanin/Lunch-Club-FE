@@ -1,6 +1,6 @@
 import { QueryClient, keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from './client';
-import type { ApiAddress, ApiBoard, ApiBotStatus, ApiCompanySettings, ApiDish, ApiInvite, ApiItemInput, ApiLunch, ApiMe, ApiMenu, ApiOrg, ApiPermission, ApiPerson, ApiRestaurant, ApiUser } from './types';
+import type { ApiPlace, ApiPlaceSuggestion, ApiAddress, ApiBoard, ApiBotStatus, ApiCompanySettings, ApiDish, ApiInvite, ApiItemInput, ApiLunch, ApiMe, ApiMenu, ApiOrg, ApiPermission, ApiPerson, ApiRestaurant, ApiUser } from './types';
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -103,8 +103,8 @@ export const useDishesQuery = (place: Place, q: string, enabled: boolean) =>
 function patchLunches(qc: QueryClient, board: ApiBoard) {
   qc.setQueryData<ApiLunch[]>(keys.lunches, (list) => {
     if (!list) return list;
-    const { id, host, cutoff_at, status, created_at } = board;
-    const lunch = { id, host, cutoff_at, status, created_at };
+    const { id, host, cutoff_at, status, created_at, name, delivery_address, delivery_lat, delivery_lng, org_kind, joined } = board;
+    const lunch = { id, host, cutoff_at, status, created_at, name, delivery_address, delivery_lat, delivery_lng, org_kind, joined };
     return list.some((l) => l.id === id) ? list.map((l) => (l.id === id ? lunch : l)) : [lunch, ...list];
   });
 }
@@ -122,7 +122,24 @@ function useBoardAction<V>(request: (v: V) => Promise<ApiBoard>) {
 }
 
 export const useStartLunch = () =>
-  useBoardAction((v: { cutoff_at: string; delivery_address: string }) => api<ApiBoard>('lunches', { method: 'POST', body: v }));
+  useBoardAction((v: { cutoff_at: string; delivery_address: string; name?: string; delivery_lat?: number; delivery_lng?: number }) =>
+    api<ApiBoard>('lunches', { method: 'POST', body: v }));
+
+// Opening a lunch's shared link: join it as a guest (or just open it, if it is in your own company).
+export const useJoinLunch = () => useBoardAction((id: string) => api<ApiBoard>(`lunches/${id}/join`, { method: 'POST' }));
+
+// Place suggestions as the host types a delivery address (three letters or more).
+export const usePlaceSuggestions = (text: string) =>
+  useQuery({
+    queryKey: ['places', text],
+    queryFn: () => api<ApiPlaceSuggestion[]>('places', { params: { q: text } }),
+    enabled: text.length >= 3,
+    staleTime: 10 * 60_000,
+    retry: false,
+    placeholderData: keepPreviousData,
+  });
+
+export const fetchPlace = (placeId: string) => api<ApiPlace>(`places/${encodeURIComponent(placeId)}`);
 
 export const useLock = () => useBoardAction((id: string) => api<ApiBoard>(`lunches/${id}/lock`, { method: 'POST' }));
 
@@ -223,8 +240,8 @@ export function useCreateCompany() {
 }
 
 // Settings: the company, its lunch defaults, office addresses and invites.
-export const useCompanySettings = () =>
-  useQuery({ queryKey: keys.settings, queryFn: () => api<ApiCompanySettings>('company/settings'), staleTime: 5 * 60_000 });
+export const useCompanySettings = (enabled = true) =>
+  useQuery({ queryKey: keys.settings, queryFn: () => api<ApiCompanySettings>('company/settings'), enabled, staleTime: 5 * 60_000 });
 
 export const useInvites = (enabled: boolean) =>
   useQuery({ queryKey: keys.invites, queryFn: () => api<ApiInvite[]>('company/invites'), enabled, staleTime: 5 * 60_000 });

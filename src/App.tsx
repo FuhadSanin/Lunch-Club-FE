@@ -63,7 +63,9 @@ function Shell() {
 
   // Steps go in order: a step still to come opens the one to do now instead.
   const steps = useLunchSteps();
-  const known = routesFor(state.role).includes(route) ? route : '/';
+  // A person with a public email can start their own lunch from anywhere, even while a guest in another's.
+  const allowed = [...routesFor(state.role), ...(live?.personal && live.canHost ? ['/new'] : [])];
+  const known = allowed.includes(route) ? route : '/';
   const ahead = STEPS.find((s) => s.route === known && !canOpen(s.id, steps.current));
   const current = ahead ? STEPS.find((s) => s.id === steps.current)!.route : known;
   useEffect(() => {
@@ -223,8 +225,17 @@ function Sidebar({ current, onClose }: { current: string; onClose?: () => void }
       </div>
 
       <Card size="sm" className="mx-1 mb-5 gap-0 px-3 py-2.5">
-        <div className="text-sm font-semibold">{state.org.team}</div>
-        <div className="truncate text-xs text-mute">{live ? `${state.org.emailDomain} · live` : `${state.org.name} · demo data`}</div>
+        {live?.personal ? (
+          <>
+            <div className="truncate text-sm font-semibold">{live.lunchName || `${live.hostName.split(' ')[0]}'s party`}</div>
+            <div className="truncate text-xs text-mute">{live.lunchName ? `${live.hostName.split(' ')[0]}'s party` : 'Personal lunch'} · live</div>
+          </>
+        ) : (
+          <>
+            <div className="text-sm font-semibold">{state.org.team}</div>
+            <div className="truncate text-xs text-mute">{live ? `${state.org.emailDomain} · live` : `${state.org.name} · demo data`}</div>
+          </>
+        )}
       </Card>
 
       <nav className="grid gap-0.5" aria-label="Your lunch">
@@ -238,6 +249,13 @@ function Sidebar({ current, onClose }: { current: string; onClose?: () => void }
           </>
         )))}
       </nav>
+
+      {live?.personal && live.canHost && !host && link('/new', current === '/new', (
+        <>
+          <Icon name="today" className={current === '/new' ? 'text-ink' : 'text-mute'} />
+          My lunches
+        </>
+      ))}
 
       {host && (
         <nav className="mt-6 grid gap-0.5" aria-labelledby={`${layoutKey}-run`}>
@@ -287,6 +305,7 @@ function Sidebar({ current, onClose }: { current: string; onClose?: () => void }
           <Avatar person={me} size="sm" />
           <div className="min-w-0 flex-1">
             <div className="truncate text-[13px] font-medium">{me.name}</div>
+            {me.email && <div className="truncate text-xs text-mute" title={me.email}>{me.email}</div>}
             <div className="text-xs text-mute">{ROLE_LABEL[state.role]}</div>
           </div>
           <ThemeToggle className="text-mute" />

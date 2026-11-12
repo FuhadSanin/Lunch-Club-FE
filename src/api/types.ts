@@ -18,11 +18,18 @@ export const ALL_PERMISSIONS: ApiPermission[] = [
 export const MEMBER_PERMISSIONS: ApiPermission[] = ['session_read', 'pick_create', 'pick_update', 'pick_delete', 'restaurant_read', 'member_read'];
 export const isHost = (p: { permissions: ApiPermission[] }) => p.permissions.includes('session_create');
 
-export type ApiOrg = { id: string; name: string; email_domain: string };
+// A company is shared by everyone with its email domain; a personal party belongs to one host (public
+// email domains like gmail.com never share a company) and others join its lunches by link.
+export type ApiOrg = { id: string; name: string; email_domain: string; kind?: 'company' | 'personal' };
 
 export type ApiUser = { id: string; name: string; email: string; permissions: ApiPermission[] };
 
-export type ApiMe = ApiUser & { org: ApiOrg | null };
+export type ApiMe = ApiUser & { org: ApiOrg | null; public_email?: boolean };
+
+// GET /api/places?q=: where a lunch can be delivered, as the person types.
+export type ApiPlaceSuggestion = { place_id: string; description: string; main_text: string; secondary_text: string };
+// GET /api/places/<place_id>: the chosen place with its coordinates.
+export type ApiPlace = { place_id: string; address: string; lat: number; lng: number };
 
 export type ApiAddress = { id: string; address: string };
 
@@ -49,6 +56,12 @@ export type ApiLunch = {
   cutoff_at: string; // ISO
   status: ApiLunchStatus;
   created_at: string;
+  name?: string; // what the host called this lunch
+  delivery_address?: string;
+  delivery_lat?: number | null;
+  delivery_lng?: number | null;
+  org_kind?: 'company' | 'personal';
+  joined?: boolean; // you are a guest in someone else's party
 };
 
 export type ApiItem = {

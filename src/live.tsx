@@ -8,7 +8,7 @@ import { useIsMutating } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
   useBoard, useConfirm, useLock, useReopen, useUnlock, useSkipPerson, useLunches, useMe, useMembers, useOrderDelivered, useSavePicks, useSkip, useStartLunch,
-  useAddAddress, useCompanySettings, useInvitePeople, useInvites, useRemoveAddress, useUpdateCompany,
+  useAddAddress, useCompanySettings, useInvitePeople, useInvites, useJoinLunch, useRemoveAddress, useUpdateCompany,
 } from '@/api/queries';
 import { ApiError } from '@/api/client';
 import { isDemoPreview } from '@/auth';
@@ -63,6 +63,8 @@ const readPin = () => {
     return null;
   }
 };
+
+const firstName = (name: string) => name.trim().split(/\s+/)[0] || 'My';
 
 const toPerson = (p: ApiPerson & { email?: string }): Person => ({ id: p.id, name: p.name, email: p.email ?? '', hue: hueOf(p.id) });
 
@@ -179,7 +181,8 @@ export function LiveStore({ children }: { children: ReactNode }) {
   // answer, say so instead of quietly showing demo data that looks like the real thing.
   if (me.isError && isServerDown(me.error) && !isDemoPreview()) return <ServerDown error={me.error} onRetry={() => me.refetch()} />;
   if (me.isError) return <>{children}</>; // no API to talk to: the demo
-  if (!me.data.org) return <SetUpCompany me={me.data} />;
+  // Public email domains (gmail.com) never share a company: those people host their own party instead.
+  if (!me.data.org && !me.data.public_email) return <SetUpCompany me={me.data} />;
   return <LiveBridge me={me.data}>{children}</LiveBridge>;
 }
 
@@ -188,7 +191,8 @@ function LiveBridge({ me, children }: { me: ApiMe; children: ReactNode }) {
   // The whole team is loaded only where a page shows it: who has picked and who hasn't (Today's lunch,
   // Pick my lunch, Review and order) and the member list (Settings). Start a lunch doesn't need it.
   const [route] = useHashRoute();
-  const members = useMembers(route !== '/new');
+  const hasOrg = !!me.org;
+  const members = useMembers(route !== '/new' && hasOrg);
   const lunches = useLunches();
   const [extras, updateExtras] = useExtras();
   // The lunch from a shared link wins; one opened earlier stays while it is still running.
@@ -205,6 +209,16 @@ function LiveBridge({ me, children }: { me: ApiMe; children: ReactNode }) {
   useEffect(() => {
     if (linkedId) pin(linkedId);
   }, [linkedId]);
+  // A link to a party you haven't joined yet: join it, then the lunch shows up in your list.
+  const [tried, setTried] = useState<string[]>([]);
+  useEffect(() => {
+    if (!linkedId || !lunches.data || lunches.data.some((l) => l.id === linkedId) || tried.includes(linkedId)) return;
+    setTried((t) => [...t, linkedId]);
+    join.mutate(linkedId, {
+      onSuccess: () => toast.success('You joined the lunch', { description: 'Pick your dishes before picks close.' }),
+      onError: (e) => toast.error("Couldn't open that lunch", { description: e.message }),
+    });
+  }, [linkedId, lunches.data]); // eslint-disable-line react-hooks/exhaustive-deps
   const lunch =
     lunches.data?.find((l) => l.id === (linkedId ?? pinned) && (linkedId || RUNNING.has(l.status))) ??
     currentLunch(lunches.data, extras);
@@ -222,8 +236,9 @@ function LiveBridge({ me, children }: { me: ApiMe; children: ReactNode }) {
   const reopen = useReopen();
   const unlock = useUnlock();
   const skipPerson = useSkipPerson();
-  const settings = useCompanySettings();
-  const invites = useInvites(me.permissions.includes('member_read'));
+  const settings = useCompanySettings(hasOrg);
+  const invites = useInvites(hasOrg && me.permissions.includes('member_read'));
+  const join = useJoinLunch();
   const updateCompany = useUpdateCompany();
   const addAddress = useAddAddress();
   const removeAddress = useRemoveAddress();
@@ -333,7 +348,12 @@ function LiveBridge({ me, children }: { me: ApiMe; children: ReactNode }) {
         return;
       case 'newSession':
         return start
-          .mutateAsync({ cutoff_at: cutoffAt(a.cutoff), delivery_address: a.address })
+          .mutateAsync({
+            cutoff_at: cutoffAt(a.cutoff),
+            delivery_address: a.address,
+            ...(a.name?.trim() && { name: a.name.trim() }),
+            ...(a.lat !== undefined && a.lng !== undefined && { delivery_lat: a.lat, delivery_lng: a.lng }),
+          })
           .then((b) => {
             updateExtras(b.id, (e) => ({ ...e, restaurantIds: a.restaurantIds }));
             pin(b.id);
@@ -400,22 +420,26 @@ function LiveBridge({ me, children }: { me: ApiMe; children: ReactNode }) {
   };
 
   // isLoading, not isPending: a query switched off for this page is pending forever but never loading.
-  if (members.isLoading || lunches.isPending || settings.isPending || (lunch && board.isPending)) return <Connecting />;
+  if (members.isLoading || lunches.isPending || settings.isLoading || (lunch && board.isPending)) return <Connecting />;
 
   // The screens have two views: someone who runs lunches sees the host's, everyone else the member's.
   const can = (p: ApiPermission) => me.permissions.includes(p);
-  const runsLunches = HOST_PERMISSIONS.some(can);
+  // Someone with a public email and no party yet can start one (it is made when they start a lunch).
+  const startsParties = !!me.public_email && !me.org;
+  const runsLunches = HOST_PERMISSIONS.some(can) || startsParties;
+  // In someone else's party you are a guest: you pick, you don't run it.
+  const guest = !!lunch?.joined;
 
   const value: Store = {
     ...demo,
     state: {
       ...demo.state,
-      role: runsLunches ? 'host' : 'member',
+      role: runsLunches && !guest ? 'host' : 'member',
       session,
       picks,
       org: settings.data
         ? orgFrom(settings.data, invites.data?.filter((i) => !i.accepted).map((i) => i.email) ?? [], demo.state.org)
-        : { ...demo.state.org, name: me.org!.name, team: me.org!.name, emailDomain: me.org!.email_domain },
+        : { ...demo.state.org, name: me.org?.name ?? `${firstName(me.name)}'s party`, team: me.org?.name ?? `${firstName(me.name)}'s party`, emailDomain: me.org?.email_domain ?? '' },
     },
     dispatch,
     people,
@@ -423,7 +447,11 @@ function LiveBridge({ me, children }: { me: ApiMe; children: ReactNode }) {
     now,
     live: {
       lunchId: lunch?.id ?? null,
-      canHost: can('session_create'),
+      canHost: can('session_create') || startsParties,
+      personal: me.org?.kind === 'personal' || startsParties || !!me.public_email,
+      lunchName: lunch?.name ?? '',
+      hostName: lunch?.host.name ?? me.name,
+      guest,
       canReopen: can('session_update'),
       canManageMembers: can('member_update'),
       orders: board.data?.orders ?? [],
