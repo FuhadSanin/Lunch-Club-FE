@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="330" viewBox="0 0 360 330"><defs>
+<filter id="print" x="-4%" y="-4%" width="108%" height="108%" color-interpolation-filters="sRGB">
+  <feTurbulence type="fractalNoise" baseFrequency="0.028" numOctaves="2" seed="5" result="warp"/>
+  <feDisplacementMap in="SourceGraphic" in2="warp" scale="3.4" xChannelSelector="R" yChannelSelector="G" result="rough"/>
+  <feTurbulence type="fractalNoise" baseFrequency="0.3" numOctaves="3" seed="9" result="fine"/>
+  <feColorMatrix in="fine" type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  14 0 0 0 -9.35" result="specks"/>
+  <feComposite in="specks" in2="rough" operator="in" result="specksIn"/>
+  <feMerge><feMergeNode in="rough"/><feMergeNode in="specksIn"/></feMerge>
+</filter></defs><g filter="url(#print)"><path d="M 204.5 33.1 A 47.3 47.3 0 0 1 279.1 49.0 A 35.6 35.6 0 0 1 321.7 87.5 A 32.8 32.8 0 0 1 351.9 130.9 A 34.2 34.2 0 0 1 315.9 172.8 A 36.1 36.1 0 0 1 272.8 211.8 A 48.8 48.8 0 0 1 194.7 221.3 A 48.1 48.1 0 0 1 117.2 217.0 A 43.8 43.8 0 0 1 51.7 190.7 A 31.3 31.3 0 0 1 25.6 147.5 A 29.6 29.6 0 0 1 14.4 101.1 A 39.0 39.0 0 0 1 66.4 65.5 A 40.9 40.9 0 0 1 124.1 33.5 A 49.8 49.8 0 0 1 204.5 33.1 Z" fill="#ffffff" stroke="#1d1d1d" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round"/><circle cx="86" cy="244" r="12" fill="#ffffff" stroke="#1d1d1d" stroke-width="3"/><circle cx="64" cy="274" r="8" fill="#ffffff" stroke="#1d1d1d" stroke-width="3"/><circle cx="48" cy="298" r="5" fill="#ffffff" stroke="#1d1d1d" stroke-width="3"/></g></svg>

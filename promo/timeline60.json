@@ -1,0 +1,474 @@
+{
+ "total": 75,
+ "ev": {
+  "peopleIn": [
+   0.25,
+   0.37,
+   0.49,
+   0.61,
+   0.73,
+   0.85,
+   0.97,
+   1.09
+  ],
+  "count35": [
+   1.485,
+   3.811
+  ],
+  "dishPop": [
+   4.254,
+   4.944,
+   5.701,
+   6.992,
+   7.162,
+   7.332,
+   7.502,
+   7.672
+  ],
+  "dishOut": 8.688,
+  "organiser": 10.088,
+  "ask": [
+   {
+    "arc": 14.762,
+    "pop": 15.182,
+    "check": 16.929,
+    "out": 17.329
+   },
+   {
+    "arc": 16.97,
+    "pop": 17.39,
+    "check": 18.867,
+    "out": 19.267
+   },
+   {
+    "arc": 18.908,
+    "pop": 19.328,
+    "check": 20.577,
+    "out": 20.977
+   },
+   {
+    "arc": 20.618,
+    "pop": 21.038,
+    "check": 22.395,
+    "out": 22.795
+   }
+  ],
+  "pass": [
+   {
+    "from": 4,
+    "to": 1,
+    "t0": 13.192,
+    "t1": 13.642
+   },
+   {
+    "from": 1,
+    "to": 2,
+    "t0": 16.97,
+    "t1": 17.42
+   },
+   {
+    "from": 2,
+    "to": 5,
+    "t0": 18.908,
+    "t1": 19.358
+   },
+   {
+    "from": 5,
+    "to": 6,
+    "t0": 20.618,
+    "t1": 21.068
+   },
+   {
+    "from": 6,
+    "to": 7,
+    "t0": 22.836,
+    "t1": 23.048,
+    "fast": 1
+   },
+   {
+    "from": 7,
+    "to": 3,
+    "t0": 23.101,
+    "t1": 23.313,
+    "fast": 1
+   },
+   {
+    "from": 3,
+    "to": 0,
+    "t0": 23.366,
+    "t1": 23.578,
+    "fast": 1
+   },
+   {
+    "from": 0,
+    "to": 2,
+    "t0": 23.63,
+    "t1": 23.842,
+    "fast": 1
+   },
+   {
+    "from": 2,
+    "to": 1,
+    "t0": 23.895,
+    "t1": 24.107,
+    "fast": 1
+   },
+   {
+    "from": 1,
+    "to": 5,
+    "t0": 24.16,
+    "t1": 24.372,
+    "fast": 1
+   },
+   {
+    "from": 5,
+    "to": 7,
+    "t0": 24.425,
+    "t1": 24.637,
+    "fast": 1
+   },
+   {
+    "from": 7,
+    "to": 3,
+    "t0": 24.69,
+    "t1": 24.902,
+    "fast": 1
+   },
+   {
+    "from": 3,
+    "to": 0,
+    "t0": 24.955,
+    "t1": 25.167,
+    "fast": 1
+   },
+   {
+    "from": 0,
+    "to": 6,
+    "t0": 25.22,
+    "t1": 25.431,
+    "fast": 1
+   },
+   {
+    "from": 6,
+    "to": 2,
+    "t0": 25.484,
+    "t1": 25.696,
+    "fast": 1
+   },
+   {
+    "from": 2,
+    "to": 4,
+    "t0": 25.749,
+    "t1": 25.961,
+    "fast": 1
+   }
+  ],
+  "rush": [
+   22.836,
+   26.014
+  ],
+  "clockMin": [
+   [
+    9.088,
+    0
+   ],
+   [
+    22.645,
+    40
+   ],
+   [
+    22.836,
+    40
+   ],
+   [
+    26.014,
+    90
+   ]
+  ],
+  "byhandIn": 25.852,
+  "orders": [
+   26.802,
+   27.402,
+   28.002,
+   28.602,
+   29.202
+  ],
+  "clockIn": 29.567,
+  "spin": [
+   29.967,
+   32.017
+  ],
+  "hours": 30.317,
+  "everyDay": 31.487,
+  "fedup": [
+   32.857,
+   33.932
+  ],
+  "diagramIn": 33.982,
+  "box": [
+   34.332,
+   35.738,
+   37.03,
+   38.453
+  ],
+  "swiggy": [
+   39.238,
+   43.643
+  ],
+  "bottleneck": 46.104,
+  "panelIn": [
+   47.276,
+   47.856
+  ],
+  "titleChime": 47.876,
+  "panelOut": [
+   49.565,
+   50.115
+  ],
+  "winIn": 49.765,
+  "pickClick": 53.001,
+  "toOrder": 53.441,
+  "ring": 54.646,
+  "toBot": 56.032,
+  "placed": 59.053,
+  "resultIn": 59.683,
+  "strike": 61.553,
+  "after": [
+   60.733,
+   61.133,
+   61.533
+  ],
+  "fiveMin": 62.574,
+  "soonIn": 63.715,
+  "menuRows": [
+   65.916,
+   66.236,
+   66.556,
+   66.876
+  ],
+  "localTag": 68.344,
+  "endIn": 69.768
+ },
+ "cues": {
+  "n1": {
+   "s": 0.985,
+   "e": 3.811,
+   "text": "Every day at noon, thirty-five people get hungry.",
+   "voice": "af_heart",
+   "narrator": true
+  },
+  "n2a": {
+   "s": 4.254,
+   "e": 4.796,
+   "text": "Veg.",
+   "voice": "af_heart",
+   "narrator": true
+  },
+  "n2b": {
+   "s": 4.944,
+   "e": 5.553,
+   "text": "Pizza.",
+   "voice": "af_heart",
+   "narrator": true
+  },
+  "n2c": {
+   "s": 5.701,
+   "e": 6.347,
+   "text": "Burgers.",
+   "voice": "af_heart",
+   "narrator": true
+  },
+  "n2d": {
+   "s": 6.692,
+   "e": 8.3,
+   "text": "Everyone wants something different.",
+   "voice": "af_heart",
+   "narrator": true
+  },
+  "n3": {
+   "s": 9.088,
+   "e": 11.637,
+   "text": "So, one person becomes the organiser.",
+   "voice": "af_heart",
+   "narrator": true
+  },
+  "n4": {
+   "s": 11.982,
+   "e": 14.671,
+   "text": "They pass their phone round, so everyone can pick.",
+   "voice": "af_heart",
+   "narrator": true
+  },
+  "c1": {
+   "s": 15.262,
+   "e": 16.879,
+   "text": "A paneer roll for me, please.",
+   "voice": "bf_emma",
+   "narrator": false
+  },
+  "c2": {
+   "s": 17.47,
+   "e": 18.817,
+   "text": "Is the biryani veg?",
+   "voice": "am_michael",
+   "narrator": false
+  },
+  "c3": {
+   "s": 19.408,
+   "e": 20.527,
+   "text": "No onions, please.",
+   "voice": "am_fenrir",
+   "narrator": false
+  },
+  "c4": {
+   "s": 21.118,
+   "e": 22.345,
+   "text": "Wait, what are you getting?",
+   "voice": "bm_george",
+   "narrator": false
+  },
+  "n4b": {
+   "s": 22.936,
+   "e": 25.664,
+   "text": "And on and on, until all thirty-five have picked.",
+   "voice": "af_heart",
+   "narrator": true
+  },
+  "n5": {
+   "s": 26.452,
+   "e": 29.332,
+   "text": "Then they order by hand, one restaurant at a time.",
+   "voice": "af_heart",
+   "narrator": true
+  },
+  "n6": {
+   "s": 30.317,
+   "e": 32.657,
+   "text": "It takes a few hours. Every single day.",
+   "voice": "af_heart",
+   "narrator": true
+  },
+  "n7a": {
+   "s": 34.332,
+   "e": 35.443,
+   "text": "Thirty-five people.",
+   "voice": "af_heart",
+   "narrator": true
+  },
+  "n7b": {
+   "s": 35.738,
+   "e": 36.734,
+   "text": "One organiser.",
+   "voice": "af_heart",
+   "narrator": true
+  },
+  "n7c": {
+   "s": 37.03,
+   "e": 38.053,
+   "text": "Orders by hand.",
+   "voice": "af_heart",
+   "narrator": true
+  },
+  "n8a": {
+   "s": 39.038,
+   "e": 42.95,
+   "text": "Swiggy's group order shares one cart, but only from one restaurant.",
+   "voice": "af_heart",
+   "narrator": true
+  },
+  "n8b": {
+   "s": 43.443,
+   "e": 46.991,
+   "text": "And its multi-restaurant checkout is still one person's cart.",
+   "voice": "af_heart",
+   "narrator": true
+  },
+  "n9": {
+   "s": 47.976,
+   "e": 49.038,
+   "text": "Meet Lunch Board.",
+   "voice": "af_heart",
+   "narrator": true
+  },
+  "n10": {
+   "s": 50.515,
+   "e": 53.101,
+   "text": "Everyone picks their own lunch, from any restaurant.",
+   "voice": "af_heart",
+   "narrator": true
+  },
+  "n11": {
+   "s": 53.791,
+   "e": 55.692,
+   "text": "The app groups the picks by restaurant.",
+   "voice": "af_heart",
+   "narrator": true
+  },
+  "n12": {
+   "s": 56.382,
+   "e": 59.303,
+   "text": "The host taps confirm, and the app places the order.",
+   "voice": "af_heart",
+   "narrator": true
+  },
+  "n13": {
+   "s": 60.583,
+   "e": 63.136,
+   "text": "From a few hours a day, to about five minutes.",
+   "voice": "af_heart",
+   "narrator": true
+  },
+  "n15": {
+   "s": 64.515,
+   "e": 69.184,
+   "text": "Coming soon: add menus from local places, even ones that aren't on Swiggy.",
+   "voice": "af_heart",
+   "narrator": true
+  },
+  "n14": {
+   "s": 70.268,
+   "e": 72.8,
+   "text": "Lunch Board. Everyone picks. One order.",
+   "voice": "af_heart",
+   "narrator": true
+  }
+ },
+ "scenes": [
+  {
+   "id": "team",
+   "cue": "n1"
+  },
+  {
+   "id": "organiser",
+   "cue": "n3"
+  },
+  {
+   "id": "byhand",
+   "cue": "n5"
+  },
+  {
+   "id": "gap",
+   "cue": "n7a"
+  },
+  {
+   "id": "meet",
+   "cue": "n9"
+  },
+  {
+   "id": "how",
+   "cue": "n10"
+  },
+  {
+   "id": "result",
+   "cue": "n13"
+  },
+  {
+   "id": "soon",
+   "cue": "n15"
+  },
+  {
+   "id": "end",
+   "cue": "n14"
+  }
+ ]
+}

@@ -31,7 +31,9 @@ Data comes from the Django API through [TanStack Query](https://tanstack.com/que
 - `src/api/client.ts`: `api()`, the one fetch wrapper. Calls go to `/api` on the app's own origin
   (Vite proxies them to `API_URL`, default `http://127.0.0.1:8001`, the port lunch-backend's
   `docker compose` uses). It turns DRF errors into one readable message, and sends the Firebase
-  ID token once sign-in calls `setIdToken`.
+  ID token once sign-in calls `setIdToken`. Deployed on Vercel, `vercel.json` rewrites
+  `/api/*` to the production API (`https://lunchclubbe.vercel.app`), so the browser stays on
+  one origin and the API needs no CORS.
 - `src/api/queries.ts`: query keys, queries (`useMe`, `useMembers`, `useLunches`, `useBoard`,
   restaurants, menus) and mutations (start, pick, skip, lock, confirm, order placed, delivered).
   A board that is still moving is polled every 5 seconds, since the Firestore live board is off

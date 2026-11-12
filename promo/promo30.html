@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Lunch Board promo, 30s</title>
+<style>
+@font-face{font-family:Geist;src:url('../public/fonts/Geist-Variable.woff2') format('woff2');font-weight:100 900}
+@font-face{font-family:'Geist Mono';src:url('../public/fonts/GeistMono-Variable.woff2') format('woff2');font-weight:100 900}
+:root{--ink:#171717;--body:#4d4d4d;--mute:#6b6b6b;--line:#ebebeb}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1920px;height:1080px;background:#fff;overflow:hidden;font-family:Geist,system-ui,sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased}
+#stage{position:relative;width:1920px;height:1080px;overflow:hidden;background:#fff}
+.abs{position:absolute}
+img{display:block;user-select:none}
+.h{font-weight:600;letter-spacing:-0.05em;line-height:.96;white-space:nowrap}
+.ln{display:block;overflow:hidden;padding:0 0 .14em;margin-bottom:-.14em}
+.w{display:inline-block;will-change:transform}
+.mono{font-family:'Geist Mono',monospace;letter-spacing:-.02em}
+
+/* the line */
+#cam{inset:0;transform-origin:960px 1000px}
+#line{left:160px;top:150px;width:1600px;height:860px}
+#line>*,#people>*,#fx>*,#bubbles>*,#dishes>*{position:absolute}
+#people,#fx,#bubbles,#dishes{left:0;top:0;width:1600px;height:860px}
+.pw{width:260px;height:680px;transform-origin:110px 665px}
+.pw img{position:absolute;inset:0;width:260px;height:680px}
+.bub{width:360px;height:330px;transform-origin:48px 298px}
+.bub img{position:absolute;inset:0;width:360px;height:330px}
+.bub div{position:absolute;left:52px;top:46px;width:256px;height:170px;display:flex;align-items:center;justify-content:center;text-align:center;font-weight:600;font-size:40px;line-height:1.02;letter-spacing:-.035em}
+.dish{width:200px;height:150px;transform-origin:50% 100%}
+#phoneWrap{width:210px;height:390px;transform-origin:50% 100%}
+#phoneWrap img{width:210px;height:390px}
+#cart{position:absolute;right:-26px;top:-20px;background:var(--ink);color:#fff;font-weight:600;font-size:26px;letter-spacing:-.02em;padding:9px 18px;border-radius:999px;white-space:nowrap}
+#spin{position:absolute;left:73px;top:164px;width:64px;height:64px;border-radius:50%;border:8px solid var(--ink);border-top-color:transparent}
+#badge{width:84px;height:84px;margin:-42px 0 0 -42px;border-radius:50%;background:var(--ink);color:#fff;font-weight:600;font-size:44px;display:grid;place-items:center;letter-spacing:-.03em}
+
+/* clock */
+#clock{width:440px;height:440px;transform-origin:0 0}
+#clock img{position:absolute;inset:0;width:440px;height:440px}
+#clock .hand{transform-origin:220px 220px}
+
+/* title card + end card */
+#panel{inset:0;background:#171717;color:#fff}
+#panel .h,#panel .sub{color:#fff}
+#panel img{filter:invert(1)}
+.sub{font-size:48px;line-height:1.25;letter-spacing:-.02em;color:var(--body)}
+#brand{display:flex;align-items:center;gap:22px;font-size:44px;font-weight:600;letter-spacing:-.035em}
+#brand svg{width:60px;height:67px}
+
+/* app windows */
+#win{left:210px;top:350px;width:1500px;height:937px;border-radius:22px 22px 0 0;overflow:hidden;background:#fff;border:1px solid var(--line);box-shadow:0 0 0 1px rgba(0,0,0,.04),0 2px 4px rgba(0,0,0,.04),0 24px 60px -12px rgba(0,0,0,.18),0 60px 120px -30px rgba(0,0,0,.14)}
+#win img.s{position:absolute;inset:0;width:100%;height:100%;will-change:transform}
+.cap{left:210px;top:96px}
+.chip{position:absolute;right:210px;top:112px;height:64px;padding:0 28px;border-radius:999px;background:var(--ink);color:#fff;font-size:28px;font-weight:500;display:flex;align-items:center;gap:14px;white-space:nowrap}
+.chip i{font-style:normal;width:34px;height:34px;border-radius:50%;background:#fff;color:var(--ink);display:grid;place-items:center;font-size:20px;font-weight:700}
+#cursor{position:absolute;left:0;top:0;width:40px;height:44px;z-index:60;filter:drop-shadow(0 3px 5px rgba(0,0,0,.3))}
+#ripple{position:absolute;width:70px;height:70px;margin:-35px 0 0 -35px;border-radius:50%;border:5px solid var(--ink);z-index:59}
+</style></head><body>
+<div id="stage">
+
+  <div id="cam" class="abs">
+    <div id="line" class="abs">
+      <img id="counter" src="art/counter.png" style="left:0;top:458px;width:1600px;height:40px">
+      <div id="phoneWrap"><img src="art/phone.png"><div id="cart">Cart 0</div><div id="spin"></div></div>
+      <img id="tiffinC" src="art/tiffin-counter.png" style="width:300px;height:270px">
+      <div id="people"></div>
+      <div id="fx"></div>
+      <div id="bubbles"></div>
+      <div id="dishes"></div>
+      <div id="badge"></div>
+      <img id="bulb" src="art/bulb.png" style="width:150px;height:200px">
+    </div>
+  </div>
+
+  <div id="label" class="abs mono" style="left:160px;top:48px;font-size:34px;font-weight:500;display:flex;align-items:center;gap:16px"><span id="dot" style="width:14px;height:14px;border-radius:50%;background:#171717;display:inline-block"></span><span id="labelTxt"></span></div>
+
+  <div id="clock" class="abs">
+    <img src="art/clock-face.png">
+    <img id="hHr" class="hand" src="art/clock-hour.png">
+    <img id="hMin" class="hand" src="art/clock-minute.png">
+  </div>
+  <div id="clockTime" class="abs mono" style="font-size:60px;font-weight:600"></div>
+  <div id="big" class="h abs" style="left:1010px;top:330px;font-size:232px"></div>
+  <div id="bigSub" class="abs sub" style="left:1016px;top:600px;font-size:58px;color:#4d4d4d;line-height:1.2"></div>
+
+  <div id="h3" class="h abs" style="left:160px;top:110px;font-size:84px"></div>
+  <div id="h4" class="h abs" style="left:160px;top:58px;font-size:84px"></div>
+  <div id="h5" class="h abs" style="left:160px;top:58px;font-size:84px"></div>
+
+  <div id="panel" class="abs">
+    <div id="brandP" class="abs" style="left:210px;top:120px"><div id="brand" style="color:#fff"></div></div>
+    <div id="hP" class="h abs" style="left:210px;top:380px;font-size:176px"></div>
+    <div id="subP" class="sub abs" style="left:214px;top:690px;color:#a1a1a1">Everyone picks. One order.</div>
+    <img id="tiffinP" src="../public/illustrations/tiffin.png" class="abs" style="left:1230px;top:150px;width:480px;height:731px">
+  </div>
+
+  <div id="sceneC" class="abs" style="inset:0">
+    <div id="caps"></div>
+    <div id="chip" class="chip"><i>&#10003;</i><span id="chipTxt"></span></div>
+    <div id="win" class="abs">
+      <img class="s" id="sNew" src="shots/new.png">
+      <img class="s" id="sPick" src="shots/pick.png">
+      <img class="s" id="sHome" src="shots/home.png">
+      <img class="s" id="sOrder" src="shots/order.png">
+      <img class="s" id="sLocked" src="shots/locked.png">
+      <img class="s" id="sBot" src="shots/bot.png">
+      <img class="s" id="sPlaced" src="shots/orderplaced.png">
+      <div id="ripple"></div>
+      <svg id="cursor" viewBox="0 0 24 27"><path d="M2 2 L2 22 L7.5 17.5 L11.5 26 L15 24.5 L11 16.5 L18.5 16 Z" fill="#171717" stroke="#fff" stroke-width="2" stroke-linejoin="round"/></svg>
+    </div>
+  </div>
+
+  <div id="endcard" class="abs" style="inset:0;background:#fff">
+    <div id="endBrand" class="abs" style="left:0;right:0;top:230px;display:flex;justify-content:center;align-items:center;gap:36px">
+      <svg id="endMark" viewBox="0 0 36 40" style="width:150px;height:167px"></svg>
+    </div>
+    <div id="hEnd" class="h abs" style="left:0;right:0;top:470px;text-align:center;font-size:190px"></div>
+    <div id="endSub" class="sub abs" style="left:0;right:0;top:730px;text-align:center;font-size:56px">Group lunch, finally sorted.</div>
+  </div>
+</div>
+
+<script>
+const clamp=(x,a=0,b=1)=>Math.min(b,Math.max(a,x));
+const seg=(t,a,b)=>clamp((t-a)/(b-a));
+const lerp=(a,b,x)=>a+(b-a)*x;
+const outCubic=x=>1-Math.pow(1-x,3);
+const outExpo=x=>x>=1?1:1-Math.pow(2,-10*x);
+const inOut=x=>x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
+const inCubic=x=>x*x*x;
+const outBack=x=>{const c1=1.9,c3=c1+1;return 1+c3*Math.pow(x-1,3)+c1*Math.pow(x-1,2)};
+const outBounce=x=>{const n=7.5625,d=2.75;if(x<1/d)return n*x*x;if(x<2/d)return n*(x-=1.5/d)*x+.75;if(x<2.5/d)return n*(x-=2.25/d)*x+.9375;return n*(x-=2.625/d)*x+.984375};
+const $=id=>document.getElementById(id);
+const mk=(cls,parent,css='')=>{const d=document.createElement('div');d.className=cls;d.style.cssText=css;parent.appendChild(d);return d};
+const imgEl=(src,parent,css='')=>{const i=document.createElement('img');i.src=src;i.style.cssText=css;parent.appendChild(i);return i};
+
+// headline builder: words rise out of a mask. starts: per-word start time (array) or base+gap
+function build(el,lines){el.innerHTML='';const ws=[];lines.forEach(l=>{const ln=document.createElement('span');ln.className='ln';l.split(' ').forEach((w,i,a)=>{const s=document.createElement('span');s.className='w';s.textContent=w+(i<a.length-1?' ':'');ln.appendChild(s);ws.push(s)});el.appendChild(ln)});return ws}
+function words(ws,t,tin,tout,gap=.07){ws.forEach((w,i)=>{const s0=Array.isArray(tin)?tin[i]:tin+i*gap;const a=seg(t,s0,s0+.7),b=tout==null?0:seg(t,tout+i*.04,tout+i*.04+.45);w.style.transform=`translateY(${(1-outExpo(a))*115-outCubic(b)*115}%)`})}
+
+// ---------- people ----------
+const XS=[100,280,460,640,820,1000,1180,1360],TIERS=[1,0,1,0,1,0,1,0],G=840;
+const people=XS.map((x,i)=>{const w=mk('pw',$('people'),`left:${x-110}px;top:${G-665}px`);
+  const calm=imgEl(`art/p-calm-${i}.png`,w), fed=imgEl(`art/p-fedup-${i}.png`,w); return {w,calm,fed}});
+
+// ---------- word bubbles (clouds with text) ----------
+const chat=[ // [person, text, start, life, lift]
+ [1,'Wait, what do I want?',.95,1.3,0],[3,'Is it veg?',1.3,1.1,40],[5,'No onions!',1.65,1.1,0],[0,'Scroll up, scroll up!',2.0,1.3,0],
+ [6,'What is he getting?',2.35,1.2,0],[2,'Who is paying?',2.7,1.2,40],[4,'Add one more!',3.0,1.2,0],[7,'Which restaurant??',3.3,1.0,30],
+ // fed up
+ [3,'Still on the phone?',7.8,1.9,0],[5,'It has been 2 hours.',8.4,1.6,0],[6,'Just pick something!',9.2,1.4,60],
+];
+const bubs=chat.map(([i,txt,t0,life,lift])=>{const b=mk('bub',$('bubbles'));imgEl('art/cloud.png',b);const d=mk('',b);d.textContent=txt;
+  b.style.left=(XS[i]+14-48)+'px';b.style.top=(236-298-lift)+'px';return {b,t0,life}});
+
+// ---------- fed-up effects ----------
+const drops=[0,1,2,3,4,5,6,7].map(i=>{const d=imgEl('art/drop.png',$('fx'),`width:36px;height:54px;left:${XS[i]+34}px;top:262px`);return d});
+const scribbles=[0,2,4].map(i=>imgEl('art/scribble.png',$('fx'),`width:150px;height:100px;left:${XS[i]-52}px;top:140px`));
+const puffs=[1,3,7].map(i=>imgEl('art/puff.png',$('fx'),`width:110px;height:60px;left:${XS[i]+64}px;top:318px`));
+
+// ---------- dish bubbles ----------
+const KINDS=['biryani','burrito','salad','burger','dosa','ramen','icecream','chicken'];
+const dishes=KINDS.map((k,i)=>({im:imgEl(`../public/illustrations/thoughts/${k}.png`,$('dishes'),'position:absolute;width:200px;height:150px;opacity:0'),x0:XS[i]-40+100,y0:(TIERS[i]?0:60)+75}));
+const TX=1508,TY=315;
+
+// ---------- headlines ----------
+const w3=build($('h3'),['Still no order.']);
+const w4=build($('h4'),['What if everyone','picked their own?']);
+const w5=build($('h5'),['Everyone picks.','One order.']);
+const wBig=build($('big'),['2 hours.']);
+const wBigS=build($('bigSub'),['to not order lunch.']);
+$('bigSub').style.fontWeight=500;
+const wP=build($('hP'),['Lunch Board']);
+const wEnd=build($('hEnd'),['Lunch Board']);
+const MARK='<g fill="#171717"><rect x="1.5" y="1.5" width="27" height="5" rx="2.5"/><ellipse cx="15" cy="4" rx="4.2" ry="3.4"/><path d="M2.5 6h3.4v29.5l2 2.3V39H4l-1.5-2z"/><path d="M27.5 6h-3.4v29.5l-2 2.3V39H26l1.5-2z"/><path d="M10.4 14.2c0-4.4 9.2-4.4 9.2 0z"/><ellipse cx="15" cy="10.3" rx="2.4" ry="1"/><ellipse cx="15" cy="14.6" rx="8.6" ry="1.6"/><path d="M7.3 15.4h15.4c.9 6.2.9 14.6-.4 19.6-1.4 3.6-13.2 3.6-14.6 0-1.3-5-1.3-13.4-.4-19.6z"/></g><g fill="none" stroke="#fff" stroke-width="1.1" stroke-linecap="round"><path d="M7.6 21.2q7.4 1.2 14.8 0M7.4 27q7.6 1.2 15.2 0M7.8 32.8q7.2 1.2 14.4 0"/></g><rect x="29.4" y="12.2" width="5.4" height="7.6" rx="0.8" fill="#fff" stroke="#171717" stroke-width="1"/>';
+$('endMark').innerHTML=MARK;
+$('brand').innerHTML='<svg viewBox="0 0 36 40">'+MARK.replace(/#171717/g,'#fff').replace('stroke="#fff"','stroke="#171717"').replace('fill="#fff" stroke="#fff"','fill="#fff"')+'</svg><span>Lunch Board</span>';
+$('brand').innerHTML='<svg viewBox="0 0 36 40"><g fill="#fff"><rect x="1.5" y="1.5" width="27" height="5" rx="2.5"/><ellipse cx="15" cy="4" rx="4.2" ry="3.4"/><path d="M2.5 6h3.4v29.5l2 2.3V39H4l-1.5-2z"/><path d="M27.5 6h-3.4v29.5l-2 2.3V39H26l1.5-2z"/><path d="M10.4 14.2c0-4.4 9.2-4.4 9.2 0z"/><ellipse cx="15" cy="10.3" rx="2.4" ry="1"/><ellipse cx="15" cy="14.6" rx="8.6" ry="1.6"/><path d="M7.3 15.4h15.4c.9 6.2.9 14.6-.4 19.6-1.4 3.6-13.2 3.6-14.6 0-1.3-5-1.3-13.4-.4-19.6z"/></g><g fill="none" stroke="#171717" stroke-width="1.1" stroke-linecap="round"><path d="M7.6 21.2q7.4 1.2 14.8 0M7.4 27q7.6 1.2 15.2 0M7.8 32.8q7.2 1.2 14.4 0"/></g><rect x="29.4" y="12.2" width="5.4" height="7.6" rx="0.8" fill="#171717" stroke="#fff" stroke-width="1"/></svg><span>Lunch Board</span>';
+
+// ---------- app beats ----------
+const BEATS=[
+ {t0:15.0,t1:17.28,lines:['The host starts','a lunch.'],chip:'One link for the team',img:'sNew'},
+ {t0:17.28,t1:19.56,lines:['Everyone picks','their own.'],chip:'Any Swiggy restaurant',img:'sPick'},
+ {t0:19.56,t1:21.84,lines:['Watch the board','fill up live.'],chip:'count',img:'sHome'},
+ {t0:21.84,t1:24.12,lines:['Review.','Lock.'],chip:'Nobody can change a pick',img:'sOrder'},
+ {t0:24.12,t1:26.4,lines:['One bot.','One Swiggy order.'],chip:'Added to one cart',img:'sBot'},
+];
+BEATS.forEach(b=>{const d=mk('cap abs',$('caps'));const h=mk('h',d,'font-size:92px');d.appendChild(h);b.el=d;b.w=build(h,b.lines)});
+// cursor paths inside the window (px in the 1500-wide window), click time
+const CUR=[
+ {t0:15.75,t1:17.1,pts:[[15.8,820,720],[16.6,1368,434]],click:16.65},
+ {t0:18.0,t1:19.3,pts:[[18.05,820,820],[18.75,1207,538]],click:18.8},
+ {t0:22.05,t1:23.5,pts:[[22.1,900,520],[22.9,1368,150]],click:23.0},
+];
+
+function lineVis(t){
+  if(t<4.25)return 1; if(t<4.6)return 1-seg(t,4.25,4.6); if(t<7.15)return 0; if(t<7.5)return seg(t,7.15,7.5);
+  if(t<13.3)return 1; if(t<26.3)return 0; return seg(t,26.3,26.7);
+}
+function camS(t){ // [t, scale]
+  const K=[[0,1.0],[4.2,1.045],[7.2,1.0],[10.5,1.08],[10.62,1.08],[11.0,.9],[26.4,.9],[26.9,.9]];
+  for(let i=1;i<K.length;i++)if(t<=K[i][0]){const a=K[i-1],b=K[i];return lerp(a[1],b[1],inOut(seg(t,a[0],b[0])))}
+  return K[K.length-1][1];
+}
+
+function render(t){
+  // ===== line scene
+  const vis=lineVis(t);
+  $('cam').style.display=vis<=0.001?'none':'block';
+  $('cam').style.opacity=vis;
+  const cs=camS(t); $('cam').style.transform=`scale(${cs}) translateY(${(1-vis)*30}px)`;
+
+  // people
+  const f7=n=>n; 
+  people.forEach((p,i)=>{
+    const ent=outBack(seg(t,.2+i*.08,.2+i*.08+.6));
+    const fed=seg(t,7.4+i*.05,7.4+i*.05+.25)-seg(t,12.0+i*.06,12.0+i*.06+.25);
+    const sway=Math.sin(t*1.5+i*.9)*.7*(1-fed*.4)+Math.sin(t*.9+i)*1.1*fed;
+    const y=(1-clamp(ent,0,1.08))*140+fed*5;
+    p.w.style.opacity=clamp(ent*2.5);
+    p.w.style.transform=`translateY(${y}px) rotate(${sway-fed*2.6}deg)`;
+    p.calm.style.opacity=1-fed; p.fed.style.opacity=fed;
+  });
+
+  // phone
+  const pw=$('phoneWrap');
+  const drop=seg(t,.1,.9), exit=seg(t,11.2,11.95);
+  const py=-760*(1-outBounce(drop)), px=outCubic(exit)*760, rot=exit*exit*34;
+  pw.style.left=(1520-105)+'px'; pw.style.top=(468-390+10)+'px';
+  pw.style.transform=`translate(${px}px,${py}px) rotate(${rot}deg)`;
+  pw.style.opacity=(t<.1||t>12.1)?0:1;
+  const n=t<4.2?Math.floor(lerp(0,37,seg(t,.6,4.2))):Math.floor(lerp(37,52,seg(t,7.4,10.4)));
+  $('cart').textContent='Cart '+n;
+  $('spin').style.opacity=(t>7.6&&t<11.2)?1:0;
+  $('spin').style.transform=`rotate(${t*520}deg)`;
+
+  let cnt=0, bump=0; for(let i=0;i<8;i++){const ta=27.2+i*.07+.65; if(t>=ta){cnt++; bump+=Math.exp(-(t-ta)*16)}}
+  // tiffin on the counter
+  const tf=$('tiffinC'); const tin=seg(t,11.85,12.5)||0; const tin2=t>26?1:0;
+  const tfy=-520*(1-outBounce(Math.max(tin,tin2)));
+  tf.style.left=(1508-150)+'px'; tf.style.top=(468-255+6)+'px';
+  tf.style.opacity=(t>11.85)?1:0;
+  tf.style.transformOrigin='50% 92%'; tf.style.transform=`translateY(${tfy}px) scale(${1+.045*Math.min(bump,1.3)})`;
+
+  // word bubbles
+  bubs.forEach(({b,t0,life})=>{
+    const a=outBack(seg(t,t0,t0+.4)), o=seg(t,t0+life-.25,t0+life);
+    const s=.8*Math.max(a,0)*(1-o*.35);
+    b.style.opacity=(t<t0||t>t0+life)?0:clamp(a*3)*(1-o);
+    b.style.transform=`scale(${s}) rotate(${Math.sin(t*5+t0)*1.2}deg)`;
+  });
+
+  // fed-up effects
+  const fedOn=seg(t,7.7,8.1)*(1-seg(t,11.0,11.4));
+  drops.forEach((d,i)=>{const ph=((t*.9+i*.37)%1.4)/1.4; d.style.opacity=fedOn*(ph<.15?ph/.15:ph>.8?(1-ph)/.2:1)*(i%2?1:.0+1);
+    d.style.transform=`translateY(${ph*44}px) scale(${.7+.3*Math.min(ph*4,1)})`});
+  scribbles.forEach((s,i)=>{const a=outBack(seg(t,8.0+i*.25,8.4+i*.25))*(1-seg(t,11.0,11.4));
+    s.style.opacity=clamp(a*2)*(t<7.9?0:1); s.style.transform=`scale(${Math.max(a,0)}) rotate(${Math.sin(t*9+i*2)*5}deg)`});
+  puffs.forEach((p,i)=>{const ph=((t*.7+i*.31)%1.6)/1.6; p.style.opacity=fedOn*Math.sin(Math.PI*ph);
+    p.style.transform=`translate(${ph*70}px,${-ph*40}px) scale(${.5+ph*.8})`});
+
+  // bulb above the last person
+  const bin=outBack(seg(t,10.6,11.1)), bout=seg(t,11.9,12.2);
+  const bl=$('bulb'); bl.style.left=(XS[7]+14-75)+'px'; bl.style.top=(228-200-20)+'px';
+  bl.style.transformOrigin='50% 100%';
+  bl.style.opacity=(t<10.6||t>12.2)?0:1-bout;
+  bl.style.transform=`scale(${Math.max(bin,0)*(1+.06*Math.sin(t*30)*(t<11.6?1:0))})`;
+
+  // dish bubbles: first pop (act II), then the final payoff
+  const second=t>20;
+  dishes.forEach((d,i)=>{
+    let t0=second?26.65+i*.05:12.3+i*.07;
+    const pop=seg(t,t0,t0+.55);
+    let x=d.x0,y=d.y0+Math.sin(t*2.2+i)*4, sc=Math.max(outBack(pop),0)*1.1, op=clamp(pop*3);
+    if(second){
+      const f0=27.2+i*.07, f=seg(t,f0,f0+.65);
+      if(f>0){const e=inOut(f);const cx=(d.x0+TX)/2,cy=Math.min(d.y0,TY)-150;
+        x=(1-e)*(1-e)*d.x0+2*(1-e)*e*cx+e*e*TX; y=(1-e)*(1-e)*d.y0+2*(1-e)*e*cy+e*e*TY;
+        sc=sc*(1-.8*e); op=op*(1-seg(f,.82,1))}
+    }
+    if(t>=13.3&&t<26.3)op=0; if(!second&&t<12.3)op=0;
+    d.im.style.opacity=op; d.im.style.transform=`translate(${x-100}px,${y-75-(sc>0?0:0)}px) scale(${Math.max(sc,0)})`;
+  });
+  // counter badge over the tiffin in the finale
+    const bd=$('badge'); bd.style.left=TX+'px'; bd.style.top='190px';
+  bd.textContent=cnt; bd.style.transform=`scale(${Math.max(outBack(seg(t,27.35,27.75)),0)*(1+.12*Math.min(bump,1.2))*(1-seg(t,28.7,28.9))})`;
+  bd.style.opacity=(t>27.35&&t<28.9)?1:0;
+
+  // ===== beat 1 label
+  const lt=seg(t,.15,.5)*(1-seg(t,4.0,4.25))+seg(t,7.5,7.9)*(1-seg(t,10.5,10.9));
+  $('label').style.opacity=lt;
+  const mins=Math.floor(lerp(0,22,seg(t,.3,4.2)));
+  $('labelTxt').textContent=t<5?`12:${String(mins).padStart(2,'0')} PM  Team lunch. One phone.`:'2:08 PM  Team lunch. Still one phone.';
+  $('label').style.left=lerp(160,236,seg(t,7.0,7.6))+'px';
+  $('dot').style.opacity=.35+.65*Math.abs(Math.sin(t*4));
+
+  // ===== clock
+  const ck=$('clock');
+  const cin=outBack(seg(t,4.5,5.0)), mv=inOut(seg(t,7.05,7.6)), cfade=seg(t,10.9,11.2);
+  const size=lerp(600,64,mv), cx=lerp(540,192,mv), cy=lerp(540,66,mv);
+  const spin=inOut(seg(t,4.95,6.5));
+  $('hMin').style.transform=`rotate(${768*spin}deg)`; $('hHr').style.transform=`rotate(${64*spin}deg)`;
+  ck.style.left=(cx-size/2)+'px'; ck.style.top=(cy-size/2)+'px';
+  ck.style.transform=`scale(${size/440*Math.max(cin,0)*(1-cfade)})`;
+  ck.style.opacity=(t<4.5||t>11.2)?0:1;
+  // digital time
+  const total=128*spin, hh=12+Math.floor(total/60), mm=Math.floor(total%60);
+  const ct=$('clockTime'); ct.textContent=`${(hh%12)||12}:${String(mm).padStart(2,'0')} PM`;
+  ct.style.left=(540-150)+'px'; ct.style.top='880px';
+  ct.style.opacity=seg(t,4.7,5.0)*(1-seg(t,7.0,7.3));
+  // "2 hours."
+  words(wBig,t,6.45,7.1,.11); words(wBigS,t,6.75,7.1,.1);
+  $('big').style.transform=`translateX(${Math.sin(t*90)*Math.exp(-(t-6.5)*10)*(t>6.5?8:0)}px)`;
+
+  // beat headlines
+  words(w3,t,7.75,10.4,.1);
+  words(w4,t,10.95,12.65,.07);
+  words(w5,t,26.85,29.0,.07);
+  // note: second line of w5 starts later
+  if(t>26.8){words(w5,t,[26.8,26.95,27.5,27.65],28.55)}
+  $('h3').style.display=(t>7.7&&t<10.9)?'block':'none';
+  $('h4').style.display=(t>10.9&&t<12.8)?'block':'none';
+  $('h5').style.display=(t>26.8&&t<29.1)?'block':'none';
+  $('big').style.display=(t>6.4&&t<7.4)?'block':'none'; $('bigSub').style.display=(t>6.7&&t<7.4)?'block':'none';
+
+  // ===== dark title card
+  const pIn=outExpo(seg(t,12.75,13.35)), pOut=inOut(seg(t,14.75,15.35));
+  const P=$('panel'); P.style.display=(t<12.7||t>15.4)?'none':'block';
+  P.style.transform=`translateY(${(1-pIn)*100-pOut*100}%)`;
+  $('brandP').style.opacity=seg(t,13.2,13.6); $('brandP').style.transform=`translateY(${(1-outExpo(seg(t,13.2,13.7)))*20}px)`;
+  words(wP,t,13.3,null,.1);
+  const sp=outCubic(seg(t,13.75,14.2)); $('subP').style.opacity=sp; $('subP').style.transform=`translateY(${(1-sp)*18}px)`;
+  const tp=outCubic(seg(t,13.0,13.9)); $('tiffinP').style.clipPath=`inset(${(1-tp)*100}% 0 0 0)`; $('tiffinP').style.transform=`translateY(${(1-tp)*40}px)`;
+
+  // ===== app windows
+  const cIn=outExpo(seg(t,14.95,15.75)), cOut=inOut(seg(t,26.35,26.9));
+  $('sceneC').style.display=(t<14.9||t>27)?'none':'block';
+  $('win').style.transform=`translateY(${(1-cIn)*300+cOut*260}px)`;
+  BEATS.forEach((b,i)=>{
+    const im=$(b.img);
+    const enter=i===0?1:outExpo(seg(t,b.t0-.05,b.t0+.55));
+    im.style.transform=`translateY(${(1-enter)*102}%)`; im.style.opacity=(i>0&&t<b.t0-.06)?0:1; im.style.zIndex=(i+1)*10;
+    b.el.style.display=(t>=b.t0-.01&&t<=b.t1+.6)?'block':'none';
+    words(b.w,t,b.t0+.02,i===BEATS.length-1?26.35:b.t1-.34,.06);
+  });
+  // sub-screens
+  $('sLocked').style.opacity=seg(t,23.12,23.34); $('sLocked').style.transform=`scale(${1+.03*(1-outCubic(seg(t,23.12,23.6)))})`;
+  $('sPlaced').style.opacity=seg(t,25.5,25.72);
+  // the locked screen must sit under later beats' images
+  $('sLocked').style.zIndex=35; $('sPlaced').style.zIndex=55;
+  const act=BEATS.findIndex(b=>t>=b.t0-.01&&t<b.t1);
+  const ac=BEATS[act<0?(t<15?0:4):act];
+  let ctext=ac.chip; if(ctext==='count'){const c=Math.round(26*outCubic(seg(t,19.9,21.1)));ctext=`${c} of 35 picked`}
+  if(ac===BEATS[3]&&t>23.12)ctext='Picks locked';
+  if(ac===BEATS[4]&&t>25.5)ctext='One order placed';
+  $('chipTxt').textContent=ctext;
+  const chipA=outCubic(seg(t,15.5,15.9))*(1-cOut);
+  $('chip').style.opacity=chipA; $('chip').style.transform=`translateY(${(1-chipA)*16}px)`;
+  // cursor
+  let cur=null; CUR.forEach(c=>{if(t>=c.t0&&t<=c.t1)cur=c});
+  const cu=$('cursor'),rp=$('ripple');
+  if(cur){
+    const P=cur.pts; let x=P[P.length-1][1],y=P[P.length-1][2];
+    for(let k=1;k<P.length;k++)if(t<=P[k][0]){const a=P[k-1],b=P[k],e=inOut(seg(t,a[0],b[0]));x=lerp(a[1],b[1],e);y=lerp(a[2],b[2],e);break}
+    const dn=seg(t,cur.click-.06,cur.click)*(1-seg(t,cur.click,cur.click+.12));
+    cu.style.opacity=seg(t,cur.t0,cur.t0+.15)*(1-seg(t,cur.t1-.2,cur.t1));
+    cu.style.transform=`translate(${x}px,${y}px) scale(${1-.14*dn})`;
+    const r=seg(t,cur.click,cur.click+.45); rp.style.left=P[P.length-1][1]+'px'; rp.style.top=P[P.length-1][2]+'px';
+    rp.style.opacity=r>0&&r<1?(1-r)*.9:0; rp.style.transform=`scale(${.3+r*1.6})`;
+  } else {cu.style.opacity=0; rp.style.opacity=0}
+
+  // ===== end card
+  const eIn=outExpo(seg(t,28.8,29.35));
+  const E=$('endcard'); E.style.display=t<28.75?'none':'block'; E.style.transform=`translateY(${(1-eIn)*100}%)`;
+  words(wEnd,t,29.2,null,.1);
+  const em=outBack(seg(t,29.1,29.55)); $('endMark').style.transform=`scale(${Math.max(em,0)})`; 
+  const es=outCubic(seg(t,29.5,29.9)); $('endSub').style.opacity=es; $('endSub').style.transform=`translateY(${(1-es)*18}px)`;
+}
+window.DURATION=30;window.render=render;
+window.ready=Promise.all([document.fonts.ready,...[...document.images].map(i=>i.decode?i.decode().catch(()=>{}):0)]);
+render(0);
+</script></body></html>
