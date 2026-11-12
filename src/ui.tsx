@@ -119,6 +119,12 @@ const paths: Record<string, string> = {
   lock: 'M6 9V6.5a4 4 0 0 1 8 0V9M5 9h10v8H5z',
   clock: 'M10 3a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM10 6v4l3 2',
   out: 'M8 4H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3M12 6l4 4-4 4M16 10H8',
+  share: 'M14 7a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM6 12a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM14 17a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM7.8 9l4.4-2.5M7.8 11l4.4 2.5',
+  chat: 'M4 4.5h12a1 1 0 0 1 1 1V13a1 1 0 0 1-1 1H9l-4 3v-3H4a1 1 0 0 1-1-1V5.5a1 1 0 0 1 1-1z',
+  hash: 'M8.5 3 7 17M13.5 3 12 17M4 7.5h13M3 12.5h13',
+  copy: 'M7 7h9v10H7zM4 13V3h9',
+  download: 'M10 3v10M6 9l4 4 4-4M4 16.5h12',
+  pin: 'M10 17.5s5.5-4.8 5.5-9.3a5.5 5.5 0 1 0-11 0c0 4.5 5.5 9.3 5.5 9.3zM10 10.2a2 2 0 1 0 0-4 2 2 0 0 0 0 4z',
 };
 
 export function Icon({ name, size = 16, className }: { name: keyof typeof paths | string; size?: number; className?: string }) {

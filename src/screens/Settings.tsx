@@ -20,6 +20,7 @@ import { Separator } from '@/components/ui/separator';
 import { Field, FieldContent, FieldDescription, FieldError, FieldLabel } from '@/components/ui/field';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { PageTitle } from '@/components/PageTitle';
+import { PlaceInput } from '@/components/PlaceInput';
 import { spring } from '@/lib/cn';
 import { playSound, setSoundOn, soundOn } from '@/lib/sound';
 
@@ -30,7 +31,7 @@ function Section({ id, title, intro, children }: { id: string; title: string; in
         <h2 id={id} className="text-base font-semibold tracking-[-0.01em]">{title}</h2>
         <div className="mt-1.5 grid gap-3 text-[13px] leading-5 text-muted-foreground">{intro}</div>
       </div>
-      <Card>
+      <Card className="overflow-visible">
         <CardContent className="grid content-start gap-5">{children}</CardContent>
       </Card>
     </section>
@@ -75,10 +76,12 @@ export default function Settings() {
 
   const addAddress = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newAddr.trim()) return;
-    dispatch({ type: 'updateOrg', org: { addresses: [...org.addresses, newAddr.trim()] } });
+    const a = newAddr.trim();
+    if (!a) return;
+    if (org.addresses.includes(a)) return void toast('That address is already saved', { description: a });
+    dispatch({ type: 'updateOrg', org: { addresses: [...org.addresses, a] } });
     setNewAddr('');
-    toast.success('Address added');
+    toast.success('Address added', { description: a });
   };
 
 
@@ -90,16 +93,16 @@ export default function Settings() {
         <Section id="co-h" title="Company" intro="The name people see on every lunch, and who can join without an invite.">
           <form className="grid gap-5" onSubmit={saveCompany}>
             <Field>
-              <FieldLabel htmlFor="co-name">Company name</FieldLabel>
-              <Input id="co-name" name="organization" autoComplete="organization" className="h-10" value={name} onChange={(e) => setName(e.target.value)} />
+              <FieldLabel htmlFor="co-name" required>Company name</FieldLabel>
+              <Input aria-required="true" id="co-name" name="organization" autoComplete="organization" className="h-10" value={name} onChange={(e) => setName(e.target.value)} />
             </Field>
             <Field>
-              <FieldLabel htmlFor="co-team">Team name</FieldLabel>
-              <Input id="co-team" name="team" autoComplete="off" className="h-10" value={team} onChange={(e) => setTeam(e.target.value)} />
+              <FieldLabel htmlFor="co-team" required>Team name</FieldLabel>
+              <Input aria-required="true" id="co-team" name="team" autoComplete="off" className="h-10" value={team} onChange={(e) => setTeam(e.target.value)} />
             </Field>
             <Field>
-              <FieldLabel htmlFor="co-domain">Company email domain</FieldLabel>
-              <Input id="co-domain" name="email-domain" autoComplete="off" spellCheck={false} inputMode="url" className="h-10" value={domain} readOnly={!!live} onChange={(e) => setDomain(e.target.value)} />
+              <FieldLabel htmlFor="co-domain" required>Company email domain</FieldLabel>
+              <Input aria-required="true" id="co-domain" name="email-domain" autoComplete="off" spellCheck={false} inputMode="url" className="h-10" value={domain} readOnly={!!live} onChange={(e) => setDomain(e.target.value)} />
               <FieldDescription>Anyone who signs in with a Google account at @{domain || 'yourcompany.com'} can join.</FieldDescription>
             </Field>
             <Field orientation="horizontal">
@@ -169,8 +172,8 @@ export default function Settings() {
         >
           <form className="grid gap-5" onSubmit={invite}>
             <Field data-invalid={!!inviteError || undefined}>
-              <FieldLabel htmlFor="inv">Email addresses</FieldLabel>
-              <Textarea id="inv" name="emails" autoComplete="off" spellCheck={false} aria-invalid={!!inviteError} value={emails} onChange={(e) => { setEmails(e.target.value); setInviteError(''); }} placeholder="priya@company.com, arjun@company.com…" />
+              <FieldLabel htmlFor="inv" required>Email addresses</FieldLabel>
+              <Textarea aria-required="true" id="inv" name="emails" autoComplete="off" spellCheck={false} aria-invalid={!!inviteError} value={emails} onChange={(e) => { setEmails(e.target.value); setInviteError(''); }} placeholder="priya@company.com, arjun@company.com…" />
               {inviteError ? <FieldError>{inviteError}</FieldError> : <FieldDescription>Separate addresses with commas or new lines.</FieldDescription>}
             </Field>
             <Button type="submit" className="w-fit">Add invites</Button>
@@ -200,11 +203,13 @@ export default function Settings() {
           </ul>
           <form onSubmit={addAddress}>
             <Field>
-              <FieldLabel htmlFor="new-addr">Add an address</FieldLabel>
-              <div className="flex gap-2">
-                <Input id="new-addr" name="address" autoComplete="street-address" className="h-10" value={newAddr} onChange={(e) => setNewAddr(e.target.value)} placeholder="Building, floor, area…" />
-                <Button type="submit" variant="outline">Add</Button>
+              <FieldLabel htmlFor="new-addr" required>Add an address</FieldLabel>
+              <div className="flex items-start gap-2">
+                {/* The same place search as Start lunch: suggestions while typing, or keep what you typed. */}
+                <PlaceInput id="new-addr" className="flex-1" value={newAddr} near={org.office} onChange={setNewAddr} onPlace={(p) => setNewAddr(p.address)} placeholder="Search a building, area or landmark…" />
+                <Button type="submit" variant="outline" className="h-10" disabled={!newAddr.trim()}>Add</Button>
               </div>
+              <FieldDescription>Choose a place from the suggestions, or type the exact address from your Swiggy account.</FieldDescription>
             </Field>
           </form>
         </Section>

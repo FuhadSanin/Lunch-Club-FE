@@ -70,7 +70,8 @@ export function useRestaurants(place: Place, query = '', skip = false): Load & {
   }, [result.data]);
 
   return {
-    status: asked ? statusOf(result) : 'loading',
+    // A new place keeps the old list as placeholder data; for the nearby listing that is the wrong place, so it counts as loading.
+    status: asked ? (result.isPlaceholderData && !q ? 'loading' : statusOf(result)) : 'loading',
     error: result.error?.message,
     retry: () => void result.refetch(),
     // A listing has no dishes; prefer what is already known, which may include a loaded menu.

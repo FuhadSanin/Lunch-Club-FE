@@ -96,10 +96,13 @@ function FieldContent({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
+// required: a red asterisk after the label (the input itself carries aria-required for screen readers).
 function FieldLabel({
   className,
+  required,
+  children,
   ...props
-}: React.ComponentProps<typeof Label>) {
+}: React.ComponentProps<typeof Label> & { required?: boolean }) {
   return (
     <Label
       data-slot="field-label"
@@ -109,7 +112,9 @@ function FieldLabel({
         className
       )}
       {...props}
-    />
+    >
+      {required ? <span>{children}<span aria-hidden="true" className="ml-0.5 text-destructive">*</span></span> : children}
+    </Label>
   )
 }
 

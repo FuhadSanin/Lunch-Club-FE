@@ -38,9 +38,10 @@ export function SetUpCompany({ me }: { me: ApiMe }) {
         <CardContent>
           <form className="grid gap-5" onSubmit={submit}>
             <Field>
-              <FieldLabel htmlFor="company">Company name</FieldLabel>
+              <FieldLabel htmlFor="company" required>Company name</FieldLabel>
               <Input
                 id="company"
+                aria-required="true"
                 name="company"
                 autoComplete="organization"
                 maxLength={120}

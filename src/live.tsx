@@ -8,11 +8,11 @@ import { useIsMutating } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
   useBoard, useConfirm, useLock, useReopen, useUnlock, useSkipPerson, useLunches, useMe, useMembers, useOrderDelivered, useSavePicks, useSkip, useStartLunch,
-  useAddAddress, useCompanySettings, useInvitePeople, useInvites, useJoinLunch, useRemoveAddress, useUpdateCompany,
+  useAddAddress, useCloseLunch, useCompanySettings, useInvitePeople, useInvites, useJoinLunch, useRemoveAddress, useUpdateCompany,
 } from '@/api/queries';
 import { ApiError } from '@/api/client';
 import { isDemoPreview } from '@/auth';
-import type { ApiBoard, ApiCompanySettings, ApiItem, ApiItemInput, ApiLunch, ApiMe, ApiPermission, ApiPerson } from '@/api/types';
+import type { ApiBoard, ApiCompanySettings, ApiItem, ApiItemInput, ApiLunch, ApiMe, ApiOffered, ApiPermission, ApiPerson } from '@/api/types';
 import type { Org } from '@/data/demo';
 
 const HOST_PERMISSIONS: ApiPermission[] = ['session_create', 'session_update', 'session_delete', 'review_create', 'order_update'];
@@ -42,16 +42,13 @@ const STATUS: Record<ApiBoard['status'], SessionStatus> = {
   cancelled: 'delivered', // never shown: a called-off lunch is not today's lunch
 };
 
-// Today's lunch: the running one (one runs at a time). Once its food arrives or it is called off, it is
-// closed, and today's screens offer to start the next.
+// Today's lunch: the one still active (one at a time). It is active from the start until the host
+// finishes its last step, Enjoy your meal, which closes it on the server, or calls it off.
 const RUNNING = new Set<ApiLunch['status']>(['open', 'locked', 'confirmed', 'placed']);
-// A lunch whose food has arrived stays current while the host hands it out, until they complete it
-// (the newest lunch only, and within a day, so an old delivered lunch never comes back).
+const isActive = (l: ApiLunch, extras: Record<string, Extras>) =>
+  RUNNING.has(l.status) || (l.status === 'delivered' && !l.closed_at && !extras[l.id]?.completed);
 const currentLunch = (lunches: ApiLunch[] = [], extras: Record<string, Extras>) =>
-  lunches.find((l) => RUNNING.has(l.status)) ??
-  lunches.slice(0, 1).find(
-    (l) => l.status === 'delivered' && !extras[l.id]?.completed && Date.now() - Date.parse(l.cutoff_at) < 864e5,
-  );
+  lunches.find((l) => RUNNING.has(l.status)) ?? lunches.find((l) => isActive(l, extras));
 
 // A shared lunch link: #/lunch/<the lunch's id>. Opening it makes that lunch the one this browser shows.
 const LINK = /^\/(?:lunch|pick)\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
@@ -66,6 +63,17 @@ const readPin = () => {
 
 const firstName = (name: string) => name.trim().split(/\s+/)[0] || 'My';
 
+// The offered list travels with the lunch, so it is the same in every browser.
+const toOffered = (r: Restaurant): ApiOffered => ({
+  id: r.id, name: r.name,
+  ...(r.area && { area: r.area }), ...(r.cuisines?.length && { cuisines: r.cuisines.slice(0, 20) }),
+  ...(r.rating && { rating: r.rating }), ...(r.eta && { eta: r.eta }),
+  ...(r.distanceKm !== undefined && { distance_km: Math.round(r.distanceKm * 100) / 100 }),
+  ...(r.photo?.startsWith('http') && { photo: r.photo }),
+});
+const fromOffered = (r: ApiOffered): Restaurant => ({
+  id: r.id, name: r.name, area: r.area, cuisines: r.cuisines, rating: r.rating, eta: r.eta, distanceKm: r.distance_km, photo: r.photo, categories: [],
+});
 const toPerson = (p: ApiPerson & { email?: string }): Person => ({ id: p.id, name: p.name, email: p.email ?? '', hue: hueOf(p.id) });
 
 // Picks store a restaurant and dish by name. Find the dish in a loaded menu, or make a stand-in so the
@@ -209,18 +217,21 @@ function LiveBridge({ me, children }: { me: ApiMe; children: ReactNode }) {
   useEffect(() => {
     if (linkedId) pin(linkedId);
   }, [linkedId]);
-  // A link to a party you haven't joined yet: join it, then the lunch shows up in your list.
-  const [tried, setTried] = useState<string[]>([]);
-  useEffect(() => {
-    if (!linkedId || !lunches.data || lunches.data.some((l) => l.id === linkedId) || tried.includes(linkedId)) return;
-    setTried((t) => [...t, linkedId]);
-    join.mutate(linkedId, {
-      onSuccess: () => toast.success('You joined the lunch', { description: 'Pick your dishes before picks close.' }),
-      onError: (e) => toast.error("Couldn't open that lunch", { description: e.message }),
+  // A link to a party you haven't joined yet: the app shows "Join the party" and joins only on that tap.
+  // Once joined, My lunches opens with the party at the top of the active ones.
+  const invited = linkedId && lunches.data && !lunches.data.some((l) => l.id === linkedId) ? linkedId : null;
+  const [joinError, setJoinError] = useState<Record<string, string>>({});
+  // Resolves with the joined lunch's board (the pop-up celebrates with it), or undefined if it failed.
+  const joinInvited = () => {
+    if (!invited) return Promise.resolve(undefined);
+    setJoinError((x) => ({ ...x, [invited]: '' }));
+    return join.mutateAsync(invited).catch((e: Error) => {
+      setJoinError((x) => ({ ...x, [invited]: e.message }));
+      return undefined;
     });
-  }, [linkedId, lunches.data]); // eslint-disable-line react-hooks/exhaustive-deps
+  };
   const lunch =
-    lunches.data?.find((l) => l.id === (linkedId ?? pinned) && (linkedId || RUNNING.has(l.status))) ??
+    lunches.data?.find((l) => l.id === (linkedId ?? pinned) && (linkedId || isActive(l, extras))) ??
     currentLunch(lunches.data, extras);
   const board = useBoard(lunch?.id);
   const now = useClock();
@@ -232,6 +243,7 @@ function LiveBridge({ me, children }: { me: ApiMe; children: ReactNode }) {
   const lock = useLock();
   const confirm = useConfirm();
   const delivered = useOrderDelivered();
+  const closeLunch = useCloseLunch();
   const start = useStartLunch();
   const reopen = useReopen();
   const unlock = useUnlock();
@@ -248,7 +260,8 @@ function LiveBridge({ me, children }: { me: ApiMe; children: ReactNode }) {
 
   const people = useMemo(() => {
     const list = (members.data ?? [me]).map(toPerson);
-    for (const p of [...(board.data?.items.map((i) => i.user) ?? []), ...(board.data?.skipped ?? [])])
+    // Everyone in the lunch (with their emails), then anyone else the board mentions.
+    for (const p of [...(board.data?.people ?? []), ...(board.data?.items.map((i) => i.user) ?? []), ...(board.data?.skipped ?? [])])
       if (!list.some((x) => x.id === p.id)) list.push(toPerson(p));
     rememberPeople(list);
     return list;
@@ -260,9 +273,9 @@ function LiveBridge({ me, children }: { me: ApiMe; children: ReactNode }) {
     const b = board.data;
     if (!b) return { ...DEMO_SESSION, id: 'none', restaurantIds: [], bot: [], handedOut: {}, checked: {} };
     const placed = b.orders.map((o) => o.swiggy_order_id).filter(Boolean);
-    // Only this browser knows which restaurants a lunch it started offers. Elsewhere this stays empty,
-    // and Pick my lunch loads the restaurants near the office itself, so other pages make no catalog call.
-    const offered = mine?.restaurantIds ?? [];
+    // The lunch carries the list the host offered; older lunches only had it in the host's browser.
+    if (b.offered_restaurants?.length) rememberStubs(b.offered_restaurants.map(fromOffered)); // so every browser can show them
+    const offered = b.offered_restaurants?.length ? b.offered_restaurants.map((r) => r.id) : (mine?.restaurantIds ?? []);
     return {
       id: b.id,
       title: 'Lunch',
@@ -353,6 +366,7 @@ function LiveBridge({ me, children }: { me: ApiMe; children: ReactNode }) {
             delivery_address: a.address,
             ...(a.name?.trim() && { name: a.name.trim() }),
             ...(a.lat !== undefined && a.lng !== undefined && { delivery_lat: a.lat, delivery_lng: a.lng }),
+            offered_restaurants: a.restaurantIds.map((id) => restaurantById(id)).filter((r): r is Restaurant => !!r).map(toOffered),
           })
           .then((b) => {
             updateExtras(b.id, (e) => ({ ...e, restaurantIds: a.restaurantIds }));
@@ -379,7 +393,10 @@ function LiveBridge({ me, children }: { me: ApiMe; children: ReactNode }) {
         return;
       }
       case 'finishLunch':
-        return void (id && updateExtras(id, (e) => ({ ...e, completed: true })));
+        // Closed on the server, so it ends for everyone in it, not just in this browser.
+        if (!id) return;
+        updateExtras(id, (e) => ({ ...e, completed: true }));
+        return closeLunch.mutateAsync(id).catch(fail("Couldn't close the lunch"));
       case 'setRole':
       case 'botStep':
       case 'placed':
@@ -452,6 +469,8 @@ function LiveBridge({ me, children }: { me: ApiMe; children: ReactNode }) {
       lunchName: lunch?.name ?? '',
       hostName: lunch?.host.name ?? me.name,
       guest,
+      place: lunch && lunch.delivery_lat != null && lunch.delivery_lng != null ? { lat: lunch.delivery_lat, lng: lunch.delivery_lng } : null,
+      invite: invited ? { id: invited, joining: join.isPending, error: joinError[invited] ?? '', join: joinInvited } : null,
       canReopen: can('session_update'),
       canManageMembers: can('member_update'),
       orders: board.data?.orders ?? [],

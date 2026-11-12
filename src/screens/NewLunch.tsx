@@ -1,7 +1,6 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { useState } from 'react';
 import { PlaceInput } from '@/components/PlaceInput';
-import { useLunches } from '@/api/queries';
 import { toast } from 'sonner';
 import { RADIUS_RANGE, type RestaurantMode } from '@/data/demo';
 import { allDishes, byDistance, restaurantById, restaurantsWithin, useMenus, type Restaurant } from '@/data/menus';
@@ -25,6 +24,8 @@ import { useCelebrate } from '@/components/celebrate';
 import { CloseLunchDialog, ExistingLunches, useRunningLunches } from './ExistingLunches';
 import type { ApiLunch, ApiPlace } from '@/api/types';
 import { cn, easeOut, spring } from '@/lib/cn';
+import { ShareLunch, lunchLink } from '@/components/share-lunch';
+import { ExitParty, useActiveParty } from '@/components/party-card';
 
 const km = (n: number) => `${n.toLocaleString('en-IN', { maximumFractionDigits: 1 })} km`;
 // Cutoffs: every quarter hour from just after now until a day later (the API takes up to 24 hours).
@@ -49,8 +50,10 @@ export default function NewLunch() {
   const celebrate = useCelebrate();
   // One lunch at a time: while one is running, the form waits until it is closed.
   const { running } = useRunningLunches();
-  // A company runs one lunch at a time. A personal party can start another while it is in others'.
-  const hasActive = live ? !live.personal && (!!live.lunchId || running.length > 0) : !state.session.completed;
+  // One lunch at a time. A company: any running lunch. A personal party: one you host or joined; you
+  // close it or exit it first (the sidebar has the way out, and so does the notice below).
+  const party = useActiveParty();
+  const hasActive = live ? (live.personal ? !!party : !!live.lunchId || running.length > 0) : !state.session.completed;
   const [tab, setTab] = useState<'active' | 'history'>('active');
   // Closing: on the API through the close dialog (call off, or mark arrived); the demo just ends its lunch.
   const close = (l: ApiLunch) => {
@@ -74,24 +77,31 @@ export default function NewLunch() {
   const [query, setQuery] = useState('');
   const [newAddr, setNewAddr] = useState('');
   const [lunchName, setLunchName] = useState('');
+  const NAME_MISSING = 'Give the lunch a name, like Friday team lunch.';
+  const nameMissing = error === NAME_MISSING;
   // A place chosen from the suggestions: restaurants are offered near it instead of near the office.
   const [place, setPlace] = useState<ApiPlace | null>(null);
   const [createdId, setCreatedId] = useState<string>();
   // Each lunch has its own link, made from its id: opening it takes anyone in the company to that lunch.
-  const linkFor = (id?: string) => `${window.location.origin}${window.location.pathname}#/${live && id ? `lunch/${id}` : 'pick'}`;
+  const linkFor = (id?: string) => lunchLink(live ? id : undefined);
   const link = linkFor(createdId ?? live?.lunchId ?? undefined);
   useMenus();
 
   // Swiggy's restaurants around the office; the sample ones if the API can't be reached.
   const around = place ? { lat: place.lat, lng: place.lng } : state.org.office;
-  const nearby = useRestaurants(around);
-  const pool = nearby.status === 'ready' ? nearby.restaurants : byDistance();
+  // No delivery place yet (a personal party must choose one; a company must have an address): no restaurants,
+  // since distances and delivery depend on it. The Restaurants card asks for the place instead.
+  const noPlace = live?.personal ? !place : !address.trim();
+  const nearby = useRestaurants(around, '', noPlace);
+  // Loading a new place's restaurants shows loading rows, not the last place's list; samples only if it fails.
+  const pool = nearby.status === 'ready' ? nearby.restaurants : nearby.status === 'loading' ? [] : byDistance();
+  const nearWhat = place ? place.address.split(',')[0] : 'the office';
   const searching = query.trim().length >= 2;
-  const search = useRestaurants(around, query, !searching);
+  const search = useRestaurants(around, query, noPlace || !searching);
 
   // Nearby: every restaurant within the range, nearest first.
   const inRange = restaurantsWithin(radius, pool);
-  const chosen = mode === 'nearby' ? inRange.map((r) => r.id) : picked;
+  const chosen = noPlace ? [] : mode === 'nearby' ? inRange.map((r) => r.id) : picked;
   // Choose myself: what's ticked stays on top, then the search results or everything nearby.
   const listed = [
     ...picked.map((id) => restaurantById(id)).filter((r): r is Restaurant => !!r),
@@ -108,8 +118,8 @@ export default function NewLunch() {
     setError('');
     if (!live?.personal && !state.org.addresses.includes(p.address)) {
       void dispatch({ type: 'updateOrg', org: { addresses: [...state.org.addresses, p.address] } });
-      toast.success('Address saved', { description: p.address });
-    }
+      toast.success('Address saved', { description: `Restaurants are now offered near ${p.address.split(',')[0]}.` });
+    } else toast.success(`Finding restaurants near ${p.address.split(',')[0]}`, { description: p.address });
   };
 
   const setRadiusKm = (v: number) => {
@@ -126,6 +136,11 @@ export default function NewLunch() {
   const start = (e: React.FormEvent) => {
     e.preventDefault();
     if (hasActive) return;
+    if (!lunchName.trim()) {
+      setError(NAME_MISSING);
+      document.getElementById('lunch-name')?.focus();
+      return;
+    }
     if (!address.trim() || (live?.personal && !place)) {
       setError(live?.personal ? 'Search for the delivery place and choose it from the list.' : 'Add a delivery address first.');
       return;
@@ -162,7 +177,6 @@ export default function NewLunch() {
       <Tabs value={tab} onValueChange={(v) => setTab(v as 'active' | 'history')} className="gap-4">
         <PillTabsList label="Lunches" value={tab} options={[{ value: 'active', label: 'Active lunch' }, { value: 'history', label: 'History' }]} className="w-fit" />
         <TabsContent value="active" className="grid gap-4">
-          {live?.personal && <MyLunches />}
       <AnimatePresence mode="wait" initial={false}>
         {started ? (
           <motion.div key="started" initial={{ opacity: 0, scale: 0.97, y: 12 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ duration: 0.6, ease: easeOut }}>
@@ -178,8 +192,49 @@ export default function NewLunch() {
                 <div className="flex gap-2 max-sm:flex-col">
                   <Input name="lunch-link" readOnly spellCheck={false} value={link} aria-label="Lunch link" className="h-10 font-mono text-[13px]" />
                   <Button variant="outline" onClick={() => void copy()}>Copy link</Button>
+                  <ShareLunch link={link} cutoff={cutoff} label="QR & share" />
                 </div>
                 <Button asChild className="w-fit"><a href="#/">Go to the live board</a></Button>
+              </CardContent>
+            </Card>
+          </motion.div>
+        ) : party ? (
+          // In a running personal party: no new one until it is closed (host) or exited (guest).
+          <motion.div key="party" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={spring}>
+            <Card>
+              <CardContent className="grid gap-4">
+                <div className="flex flex-wrap items-center gap-4">
+                  <span className="grid size-10 flex-none place-items-center rounded-full bg-muted text-muted-foreground"><Icon name="lock" size={18} /></span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium">You're in “{party.name || `${party.host.name.split(' ')[0]}'s party`}”</p>
+                    <p className="mt-1 text-[13px] text-muted-foreground">
+                      One party at a time.{' '}
+                      {party.joined
+                        ? 'Exit it from the sidebar, or here, and then you can start your own.'
+                        : party.status === 'open' || party.status === 'locked'
+                          ? 'Call it off from the sidebar or here, or run it to the last step, Enjoy your meal. Then you can start your own.'
+                          : 'It ends at the last step, Enjoy your meal, once the food is collected and handed out. Then you can start your own.'}
+                    </p>
+                  </div>
+                  <ExitParty lunch={party} size="default" />
+                </div>
+                {/* The party's link, so anyone in it can bring people in; the host also gets the QR code and share options. */}
+                <div className="grid gap-2 rounded-xl bg-muted/60 p-3">
+                  <Label htmlFor="party-link" className="text-[13px]">Party link</Label>
+                  <div className="flex gap-2 max-sm:flex-col">
+                    <Input id="party-link" readOnly spellCheck={false} value={lunchLink(party.id)} onFocus={(e) => e.currentTarget.select()} className="h-10 bg-background font-mono text-[13px]" />
+                    <Button type="button" variant="outline" onClick={() => void copy(lunchLink(party.id))}>Copy link</Button>
+                    {!party.joined && (
+                      <ShareLunch
+                        link={lunchLink(party.id)}
+                        name={party.name || undefined}
+                        cutoff={new Date(party.cutoff_at).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })}
+                        label="QR & share"
+                      />
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">It opens the party, so people can join and pick before the cutoff.</p>
+                </div>
               </CardContent>
             </Card>
           </motion.div>
@@ -195,10 +250,11 @@ export default function NewLunch() {
                   <div className="flex gap-2 max-sm:flex-col">
                     <Input id="share-link" readOnly spellCheck={false} value={link} onFocus={(e) => e.currentTarget.select()} className="h-10 bg-background font-mono text-[13px]" />
                     <Button variant="outline" onClick={() => void copy()}>Copy link</Button>
+                    <ShareLunch link={link} cutoff={state.session.cutoff} name={live?.lunchName} label="QR & share" />
                   </div>
                   <p className="text-xs text-muted-foreground">It opens Pick my lunch, so everyone can choose before the cutoff.</p>
                 </div>
-                <p className="text-[13px] text-muted-foreground">One lunch runs at a time. Once this one is complete, or you close it, you can start the next.</p>
+                <p className="text-[13px] text-muted-foreground">One lunch at a time. It ends at the last step, Enjoy your meal (or when it's called off before ordering); then you can start the next.</p>
               </CardContent>
             </Card>
           </motion.div>
@@ -214,6 +270,18 @@ export default function NewLunch() {
                 </CardAction>
               </CardHeader>
               <CardContent>
+                {noPlace ? (
+                  <div className="grid justify-items-start gap-3 rounded-xl border border-dashed border-input p-6">
+                    <span className="grid size-10 place-items-center rounded-full bg-muted text-muted-foreground"><Icon name="search" size={18} /></span>
+                    <div>
+                      <p className="text-sm font-medium">Choose where to deliver first</p>
+                      <p className="mt-1 text-[13px] text-muted-foreground">Restaurants are offered near the delivery place, so they show up once you choose it under Deliver to.</p>
+                    </div>
+                    <Button type="button" variant="outline" size="sm" onClick={() => { const el = document.getElementById('addr'); el?.scrollIntoView({ block: 'center', behavior: 'smooth' }); el?.focus({ preventScroll: true }); }}>
+                      Choose a place
+                    </Button>
+                  </div>
+                ) : (
                 <Tabs value={mode} onValueChange={(v) => { setMode(v as RestaurantMode); setError(''); }} className="gap-5">
                   <PillTabsList<RestaurantMode>
                     label="How to choose restaurants"
@@ -227,7 +295,7 @@ export default function NewLunch() {
                   <TabsContent value="nearby" className="grid gap-5">
                     <Field>
                       <div className="flex items-baseline justify-between gap-3">
-                        <FieldLabel htmlFor="radius">Within {km(radius)} of the office</FieldLabel>
+                        <FieldLabel htmlFor="radius">Within {km(radius)} of {nearWhat}</FieldLabel>
                         <span className="text-[13px] text-muted-foreground num">{inRange.length} in range</span>
                       </div>
                       <div className="flex items-center gap-2">
@@ -252,11 +320,11 @@ export default function NewLunch() {
                         step={RADIUS_RANGE.step}
                         value={[radius]}
                         onValueChange={([v]) => { setRadius(v); setError(''); }}
-                        aria-label="Distance from the office"
+                        aria-label={`Distance from ${nearWhat}`}
                       />
                       <FieldDescription>Every restaurant in range is offered. Distances are from {address}.</FieldDescription>
                     </Field>
-                    <LoadNote load={nearby} what="restaurants near the office" />
+                    <LoadNote load={nearby} what={`restaurants near ${nearWhat}`} />
                     <ul className="grid gap-2">
                       <AnimatePresence initial={false} mode="popLayout">
                         {inRange.map((r) => {
@@ -297,7 +365,7 @@ export default function NewLunch() {
                       <FieldLabel htmlFor="find">Find on Swiggy</FieldLabel>
                       <Input id="find" type="search" name="find" autoComplete="off" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Paragon, biryani…" className="h-10" />
                     </Field>
-                    {searching ? <LoadNote load={search} what="the search" sample={false} /> : <LoadNote load={nearby} what="restaurants near the office" />}
+                    {searching ? <LoadNote load={search} what="the search" sample={false} /> : <LoadNote load={nearby} what={`restaurants near ${nearWhat}`} />}
                     <fieldset>
                       <legend className="sr-only">Restaurants to offer</legend>
                       <div className="grid gap-2 sm:grid-cols-2">
@@ -327,34 +395,35 @@ export default function NewLunch() {
                       </div>
                       {(searching ? search : nearby).status === 'loading' && <RowsLoading />}
                       {searching && search.status === 'ready' && !search.restaurants.length && (
-                        <p className="mt-2 rounded-xl border border-dashed border-input p-4 text-sm text-muted-foreground">No restaurants on Swiggy match “{query.trim()}” near the office.</p>
+                        <p className="mt-2 rounded-xl border border-dashed border-input p-4 text-sm text-muted-foreground">No restaurants on Swiggy match “{query.trim()}” near {nearWhat}.</p>
                       )}
                     </fieldset>
                   </TabsContent>
                 </Tabs>
+                )}
               </CardContent>
             </Card>
 
-            <Card className="lg:sticky lg:top-8 lg:col-span-4" aria-labelledby="when-h">
+            <Card className="overflow-visible lg:sticky lg:top-8 lg:col-span-4" aria-labelledby="when-h">
               <CardHeader><CardTitle id="when-h">When and where</CardTitle></CardHeader>
               <CardContent className="grid gap-5">
                 <Field>
-                  <FieldLabel htmlFor="cutoff">Picks close at</FieldLabel>
+                  <FieldLabel htmlFor="cutoff" required>Picks close at</FieldLabel>
                   <TimePicker id="cutoff" value={cutoff} onValueChange={setCutoff} options={cutoffs} now={DEMO_NOW} />
                 </Field>
                 <Field>
-                  <FieldLabel htmlFor="lunch-name">Lunch name <span className="font-normal text-muted-foreground">(optional)</span></FieldLabel>
-                  <Input id="lunch-name" name="lunch-name" autoComplete="off" maxLength={80} value={lunchName} onChange={(e) => setLunchName(e.target.value)} placeholder="Friday team lunch" className="h-10" />
+                  <FieldLabel htmlFor="lunch-name" required>Lunch name</FieldLabel>
+                  <Input id="lunch-name" name="lunch-name" autoComplete="off" maxLength={80} aria-required="true" aria-invalid={nameMissing || undefined} value={lunchName} onChange={(e) => { setLunchName(e.target.value); if (nameMissing) setError(''); }} placeholder="Friday team lunch" className="h-10" />
                 </Field>
                 {live?.personal ? (
                   <Field>
-                    <FieldLabel htmlFor="addr">Deliver to</FieldLabel>
-                    <PlaceInput id="addr" value={address} onChange={(t) => { setAddress(t); setPlace(null); }} onPlace={choosePlace} placeholder="Search your office, building or area…" />
+                    <FieldLabel htmlFor="addr" required>Deliver to</FieldLabel>
+                    <PlaceInput id="addr" value={address} near={around} onChange={(t) => { setAddress(t); setPlace(null); }} onPlace={choosePlace} placeholder="Search your office, building or area…" />
                     <FieldDescription>{place ? `Restaurants are offered near ${place.address}.` : 'Choose a place from the suggestions; restaurants are offered near it.'}</FieldDescription>
                   </Field>
                 ) : (
                   <Field>
-                    <FieldLabel htmlFor="addr">Deliver to</FieldLabel>
+                    <FieldLabel htmlFor="addr" required>Deliver to</FieldLabel>
                     <Select value={address} onValueChange={(a) => { setAddress(a); setPlace(null); }}>
                       <SelectTrigger id="addr" className="w-full">
                         <SelectValue placeholder="Choose or search an address">
@@ -369,7 +438,7 @@ export default function NewLunch() {
                         })}
                       </SelectContent>
                     </Select>
-                    <PlaceInput value={newAddr} onChange={setNewAddr} onPlace={choosePlace} placeholder="Or search a new address…" />
+                    <PlaceInput value={newAddr} near={around} onChange={setNewAddr} onPlace={choosePlace} placeholder="Or search a new address…" />
                     <FieldDescription>{place ? `Restaurants are offered near ${place.address}.` : "Pick a saved address or search a new one. It must match an address on the host's Swiggy account."}</FieldDescription>
                   </Field>
                 )}
@@ -422,46 +491,4 @@ function LoadNote({ load, what, sample = true }: { load: { status: string; error
   );
 }
 
-const STATUS_LABEL: Record<string, string> = { open: 'Picking', locked: 'Locked', confirmed: 'Ordering', placed: 'Ordered', delivered: 'Arrived', cancelled: 'Called off' };
 
-// A personal party's two sections, the first of them: the lunches you are in (ones you host and ones you
-// joined by link). The second is the form below, to start a new one.
-function MyLunches() {
-  const lunches = useLunches(true);
-  const { live } = useStore();
-  const running = (lunches.data ?? []).filter((l) => ['open', 'locked', 'confirmed', 'placed'].includes(l.status));
-  const copy = async (id: string) => {
-    const url = `${window.location.origin}${window.location.pathname}#/lunch/${id}`;
-    try {
-      await navigator.clipboard.writeText(url);
-      toast.success('Link copied', { description: 'Send it to the people you are eating with.' });
-    } catch {
-      toast.error("Couldn't copy the link", { description: url });
-    }
-  };
-  return (
-    <Card aria-labelledby="mine-h">
-      <CardHeader>
-        <CardTitle id="mine-h">Lunches you're in</CardTitle>
-        <CardDescription>Ones you started and ones you joined by link. Open one to pick or run it.</CardDescription>
-        <CardAction><Badge variant={running.length ? 'info' : 'secondary'}>{running.length}</Badge></CardAction>
-      </CardHeader>
-      <CardContent className="grid gap-2">
-        {running.map((l) => (
-          <div key={l.id} className="flex flex-wrap items-center gap-3 rounded-xl bg-muted/60 p-3">
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-medium">{l.name || `${l.host.name.split(' ')[0]}'s lunch`}</span>
-              <span className="block truncate text-[13px] text-muted-foreground">
-                {l.joined ? `Hosted by ${l.host.name}` : 'You are hosting'} · {STATUS_LABEL[l.status] ?? l.status} · picks close {new Date(l.cutoff_at).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })}
-              </span>
-            </span>
-            {l.id === live?.lunchId && <Badge variant="secondary">Showing now</Badge>}
-            {!l.joined && <Button type="button" size="sm" variant="outline" onClick={() => void copy(l.id)}>Copy link</Button>}
-            <Button asChild size="sm"><a href={`#/lunch/${l.id}`}>Open</a></Button>
-          </div>
-        ))}
-        {!running.length && <p className="rounded-xl border border-dashed border-input p-4 text-sm text-muted-foreground">You're not in a lunch yet. Open a link someone sent you, or start one below.</p>}
-      </CardContent>
-    </Card>
-  );
-}

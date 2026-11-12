@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { toast } from 'sonner';
-import { useBoard, useCancel, useLunches, useOrderDelivered } from '@/api/queries';
+import { useCancel, useLunches } from '@/api/queries';
 import type { ApiLunch, ApiLunchStatus } from '@/api/types';
 import { useStore } from '@/store';
 import { Badge } from '@/components/ui/badge';
@@ -23,10 +23,11 @@ const STATUS: Record<ApiLunchStatus, { label: string; variant: 'success' | 'warn
   cancelled: { label: 'Called off', variant: 'secondary', dot: 'bg-muted-foreground/40' },
 };
 
-// A lunch is running from the moment it starts until its food arrives or it is called off. Only one
-// runs at a time: the next lunch can start once the running one is closed.
+// A lunch is running from the moment it starts until its food arrives or it is called off. It stays
+// active (one at a time) until the host finishes its last step, Enjoy your meal, which closes it.
 export const RUNNING = new Set<ApiLunchStatus>(['open', 'locked', 'confirmed', 'placed']);
-const ORDERED = new Set<ApiLunchStatus>(['confirmed', 'placed']);
+export const isActive = (l: ApiLunch): boolean => RUNNING.has(l.status) || (l.status === 'delivered' && !l.closed_at);
+const ORDERED = new Set<ApiLunchStatus>(['confirmed', 'placed', 'delivered']);
 
 const hhmm = (d: Date) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 
@@ -51,7 +52,7 @@ export const lunchName = (l: ApiLunch) => {
 export function useRunningLunches() {
   const { live } = useStore();
   const lunches = useLunches(!!live);
-  return { running: (lunches.data ?? []).filter((l) => RUNNING.has(l.status)), pending: !!live && lunches.isPending };
+  return { running: (lunches.data ?? []).filter(isActive), pending: !!live && lunches.isPending };
 }
 
 // Lunches already started, newest first: the running one on top with a way to close it, and the last
@@ -74,8 +75,8 @@ export function ExistingLunches({ show, onClose }: { show: 'running' | 'past'; o
         status: state.session.completed ? 'delivered' : state.session.status === 'placing' ? 'confirmed' : state.session.status,
         created_at: new Date().toISOString(),
       }];
-  const running = all.filter((l) => RUNNING.has(l.status));
-  const past = all.filter((l) => !RUNNING.has(l.status));
+  const running = all.filter(isActive);
+  const past = all.filter((l) => !isActive(l));
   const shownPast = showAll ? past : past.slice(0, 3);
 
   if (live && lunches.isPending) {
@@ -92,7 +93,7 @@ export function ExistingLunches({ show, onClose }: { show: 'running' | 'past'; o
   const row = (l: ApiLunch) => {
     const s = STATUS[l.status];
     const current = live ? l.id === live.lunchId : true;
-    const canClose = (live ? live.canHost : state.role === 'host') && RUNNING.has(l.status);
+    const canClose = (live ? live.canHost : state.role === 'host') && isActive(l);
     return (
       <motion.li
         key={l.id}
@@ -101,22 +102,22 @@ export function ExistingLunches({ show, onClose }: { show: 'running' | 'past'; o
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, height: 0 }}
         transition={spring}
-        className={cn('flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl px-3.5 py-3 shadow-ring', current && RUNNING.has(l.status) && 'bg-muted/60')}
+        className={cn('flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl px-3.5 py-3 shadow-ring', current && isActive(l) && 'bg-muted/60')}
       >
         <span aria-hidden="true" className={cn('size-2.5 shrink-0 rounded-full', s.dot, l.status === 'open' && 'animate-pulse')} />
         <span className="min-w-0 flex-1">
           <span className="block text-sm font-medium">
             {lunchDay(l.cutoff_at)} · picks close {hhmm(new Date(l.cutoff_at))}
-            {current && live && RUNNING.has(l.status) && <span className="font-normal text-muted-foreground"> · today's board</span>}
+            {current && live && isActive(l) && <span className="font-normal text-muted-foreground"> · today's board</span>}
           </span>
           <span className="block truncate text-[13px] text-muted-foreground">
             Started by {l.host.name}
-            {current && RUNNING.has(l.status) && <> · now on step {stepNo}, {step.label.toLowerCase()}</>}
+            {current && isActive(l) && <> · now on step {stepNo}, {step.label.toLowerCase()}</>}
           </span>
         </span>
         <Badge variant={s.variant}>{s.label}</Badge>
         <span className="flex gap-1.5">
-          {current && RUNNING.has(l.status) && (
+          {current && isActive(l) && (
             <Button asChild size="sm"><a href={`#${step.route}`}>Go to {step.label.toLowerCase()}</a></Button>
           )}
           {canClose && <Button size="sm" variant="outline" onClick={() => onClose(l)}>Close</Button>}
@@ -145,48 +146,31 @@ export function ExistingLunches({ show, onClose }: { show: 'running' | 'past'; o
   );
 }
 
-// Closing a running lunch so the next one can start. Not ordered yet: it is called off and the picks
-// are dropped. Ordered: it closes when the food arrives, which needs every Swiggy order placed first.
+// Closing a lunch so the next one can start. Not ordered yet: it is called off and the picks are
+// dropped. Ordered: it ends at the last step, Enjoy your meal, after the food is collected and handed
+// out; this points the host there.
 export function CloseLunchDialog({ lunch, onOpenChange }: { lunch: ApiLunch | null; onOpenChange: (open: boolean) => void }) {
   const { live } = useStore();
+  const steps = useLunchSteps();
   const ordered = !!lunch && ORDERED.has(lunch.status);
-  const board = useBoard(ordered ? lunch?.id : undefined);
   const cancel = useCancel();
-  const delivered = useOrderDelivered();
-  const [arriving, setArriving] = useState(false);
-  const orders = board.data?.orders ?? [];
-  const notPlaced = orders.filter((o) => o.status !== 'placed' && o.status !== 'delivered');
   const name = lunch ? lunchName(lunch) : 'this lunch';
+  const here = lunch?.id === live?.lunchId;
+  const stepRoute = STEPS.find((s) => s.id === steps.current)?.route ?? '/';
   const done = () => {
-    toast.success('Lunch closed', { description: 'You can start the next one now.' });
+    toast.success('Lunch called off', { description: 'You can start the next one now.' });
     onOpenChange(false);
-  };
-
-  const arrive = async () => {
-    setArriving(true);
-    try {
-      for (const o of orders.filter((o) => o.status === 'placed')) await delivered.mutateAsync(o.id);
-      done();
-    } catch (e) {
-      toast.error("Couldn't close the lunch", { description: (e as Error).message });
-    } finally {
-      setArriving(false);
-    }
   };
 
   return (
     <Dialog open={!!lunch} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Close {name}?</DialogTitle>
+          <DialogTitle>{ordered ? `Finish ${name}` : `Close ${name}?`}</DialogTitle>
           <DialogDescription>
             {!ordered
               ? "Nothing has been ordered yet, so closing calls it off: everyone's picks are dropped and nothing is ordered. This can't be undone."
-              : board.isPending
-                ? 'Checking its Swiggy orders…'
-                : notPlaced.length
-                  ? `It was confirmed, but ${notPlaced.length === 1 ? 'one Swiggy order still needs' : `${notPlaced.length} Swiggy orders still need`} an order number. Add ${notPlaced.length === 1 ? 'it' : 'them'} in Review and order, then mark the food as arrived to close it.`
-                  : 'It was ordered on Swiggy, so it closes when the food arrives. Mark the food as arrived to close it.'}
+              : 'It was ordered on Swiggy, so it ends at the last step: collect the food, hand it out, then complete the lunch in Enjoy your meal. A new party can start after that.'}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
@@ -205,15 +189,9 @@ export function CloseLunchDialog({ lunch, onOpenChange }: { lunch: ApiLunch | nu
             >
               {cancel.isPending ? 'Closing…' : 'Call off and close'}
             </Button>
-          ) : notPlaced.length ? (
-            lunch?.id === live?.lunchId && (
-              <Button asChild onClick={() => onOpenChange(false)}>
-                <a href="#/order">Go to Review and order</a>
-              </Button>
-            )
           ) : (
-            <Button disabled={board.isPending || arriving} onClick={arrive}>
-              {arriving ? 'Closing…' : 'Mark as arrived and close'}
+            <Button asChild onClick={() => onOpenChange(false)}>
+              <a href={here ? `#${stepRoute}` : `#/lunch/${lunch?.id}`}>Go to the steps</a>
             </Button>
           )}
         </DialogFooter>

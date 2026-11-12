@@ -1,6 +1,6 @@
 import { QueryClient, keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from './client';
-import type { ApiPlace, ApiPlaceSuggestion, ApiAddress, ApiBoard, ApiBotStatus, ApiCompanySettings, ApiDish, ApiInvite, ApiItemInput, ApiLunch, ApiMe, ApiMenu, ApiOrg, ApiPermission, ApiPerson, ApiRestaurant, ApiUser } from './types';
+import type { ApiPlace, ApiPlaceSuggestion, ApiAddress, ApiBoard, ApiBotStatus, ApiCompanySettings, ApiDish, ApiInvite, ApiItemInput, ApiLunch, ApiMe, ApiMenu, ApiOffered, ApiOrg, ApiPermission, ApiPerson, ApiRestaurant, ApiUser } from './types';
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -122,18 +122,30 @@ function useBoardAction<V>(request: (v: V) => Promise<ApiBoard>) {
 }
 
 export const useStartLunch = () =>
-  useBoardAction((v: { cutoff_at: string; delivery_address: string; name?: string; delivery_lat?: number; delivery_lng?: number }) =>
+  useBoardAction((v: { cutoff_at: string; delivery_address: string; name?: string; delivery_lat?: number; delivery_lng?: number; offered_restaurants?: ApiOffered[] }) =>
     api<ApiBoard>('lunches', { method: 'POST', body: v }));
 
 // Opening a lunch's shared link: join it as a guest (or just open it, if it is in your own company).
 export const useJoinLunch = () => useBoardAction((id: string) => api<ApiBoard>(`lunches/${id}/join`, { method: 'POST' }));
 
-// Place suggestions as the host types a delivery address (three letters or more).
-export const usePlaceSuggestions = (text: string) =>
+// Leave a party joined by its link; its picks are dropped and it leaves your list.
+export const useLeaveLunch = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api<void>(`lunches/${id}/join`, { method: 'DELETE' }),
+    onSuccess: (_none, id) => {
+      qc.setQueryData<ApiLunch[]>(keys.lunches, (list) => list?.filter((l) => l.id !== id));
+      qc.removeQueries({ queryKey: keys.board(id), exact: true });
+    },
+  });
+};
+
+// Place suggestions as the host types a delivery address (two letters or more), nearest to `near` first.
+export const usePlaceSuggestions = (text: string, near?: Place) =>
   useQuery({
-    queryKey: ['places', text],
-    queryFn: () => api<ApiPlaceSuggestion[]>('places', { params: { q: text } }),
-    enabled: text.length >= 3,
+    queryKey: ['places', text, near?.lat.toFixed(1), near?.lng.toFixed(1)],
+    queryFn: () => api<ApiPlaceSuggestion[]>('places', { params: { q: text, lat: near?.lat, lng: near?.lng } }),
+    enabled: text.length >= 2,
     staleTime: 10 * 60_000,
     retry: false,
     placeholderData: keepPreviousData,
@@ -145,6 +157,9 @@ export const useLock = () => useBoardAction((id: string) => api<ApiBoard>(`lunch
 
 // Reopens locked picks before the order goes out; a cutoff that has passed moves 30 minutes ahead.
 export const useUnlock = () => useBoardAction((id: string) => api<ApiBoard>(`lunches/${id}/unlock`, { method: 'POST' }));
+
+// The host ends a lunch whose food has arrived; it then drops off everyone's Today's lunch.
+export const useCloseLunch = () => useBoardAction((id: string) => api<ApiBoard>(`lunches/${id}/close`, { method: 'POST' }));
 
 export const useCancel = () => useBoardAction((id: string) => api<ApiBoard>(`lunches/${id}/cancel`, { method: 'POST' }));
 

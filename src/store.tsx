@@ -3,7 +3,7 @@ import {
   DEMO_NOW, DEMO_ORG, DEMO_PICKS, DEMO_SESSION, ME_ID, PEOPLE,
   type BotStep, type Org, type Person, type Pick, type PickLine, type Role, type Session,
 } from './data/demo';
-import type { ApiOrder } from './api/types';
+import type { ApiBoard, ApiOrder } from './api/types';
 import { dishById, restaurantById, useMenus } from './data/menus';
 
 export type State = {
@@ -164,6 +164,9 @@ export type Live = {
   lunchName: string; // what the host called the lunch
   hostName: string; // who is hosting it
   guest: boolean; // a guest in someone else's party
+  place: { lat: number; lng: number } | null; // where the lunch delivers, when the host chose it from the suggestions
+  // A shared link to a party this person hasn't joined: the app asks before joining it.
+  invite: { id: string; joining: boolean; error: string; join: () => Promise<ApiBoard | undefined> } | null;
 };
 
 export type Store = {
