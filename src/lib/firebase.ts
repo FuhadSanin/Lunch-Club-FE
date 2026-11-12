@@ -7,7 +7,7 @@ import { GoogleAuthProvider, getAuth, onAuthStateChanged, signInWithPopup, signO
 import { useSyncExternalStore } from 'react';
 
 // Firebase's web config names the project; it is meant to ship in the page, it isn't a secret.
-const app = initializeApp({
+export const firebaseApp = initializeApp({
   apiKey: 'AIzaSyDa3iuFZEXACtEhB5QUxLAxdPe_9mm1y-w',
   authDomain: 'lunchclub-fa2d4.firebaseapp.com',
   projectId: 'lunchclub-fa2d4',
@@ -15,7 +15,7 @@ const app = initializeApp({
   messagingSenderId: '982646408056',
   appId: '1:982646408056:web:1790fa13c4c494489bbe8d',
 });
-const auth = getAuth(app);
+const auth = getAuth(firebaseApp);
 
 // Undefined until Firebase has restored (or not) the sign-in saved in this browser.
 let user: User | null | undefined;

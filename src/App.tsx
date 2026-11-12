@@ -27,6 +27,7 @@ import { LiveStore } from './live';
 import { JoinParty } from './screens/JoinParty';
 import { ActivePartyCard, useActiveParty } from './components/party-card';
 import { NoLunch } from './screens/NoLunch';
+import { NotificationSync, NotificationsBell, NotificationsToggle } from './components/Notifications';
 
 // Everyone: the dashboard and their own pick. Hosts also run the lunch, step by step (src/lib/steps.ts),
 // and have Settings at the bottom.
@@ -126,6 +127,7 @@ function Shell() {
             {title}
           </motion.span>
         </AnimatePresence>
+        {live && <NotificationsBell />}
         <ThemeToggle />
         <Mark size={26} />
       </header>
@@ -174,6 +176,7 @@ function Shell() {
         </div>
       </main>
       {live?.invite && <JoinParty invite={live.invite} />}
+      {live && <NotificationSync />}
     </div>
   );
 }
@@ -223,6 +226,7 @@ function Sidebar({ current, onClose }: { current: string; onClose?: () => void }
           <Mark />
           Lunch Board
         </a>
+        {live && !onClose && <NotificationsBell />}
         {onClose && (
           <Button variant="ghost" size="icon" aria-label="Close menu" onClick={onClose}>
             <Icon name="close" size={18} />
@@ -292,7 +296,9 @@ function Sidebar({ current, onClose }: { current: string; onClose?: () => void }
         </nav>
       )}
 
-      <div className={cn("grid gap-4 px-1.5 pt-4", !host && "mt-auto")}>
+      {live && <div className={cn('px-1.5 pt-2', !host && 'mt-auto')}><NotificationsToggle /></div>}
+
+      <div className={cn("grid gap-4 px-1.5 pt-4", !host && !live && "mt-auto")}>
         {!live && <div className="grid gap-1.5">
           <span className="text-xs text-mute">View the demo as</span>
           <Segmented<Role>
@@ -328,3 +334,4 @@ function Sidebar({ current, onClose }: { current: string; onClose?: () => void }
     </div>
   );
 }
+

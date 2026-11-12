@@ -1,3 +1,4 @@
+import { NotificationsPrompt } from '@/components/Notifications';
 import { AnimatePresence, motion } from 'motion/react';
 import { toast } from 'sonner';
 import { useMemo, useState } from 'react';
@@ -98,6 +99,7 @@ export default function Home() {
       />
 
       <NowBanner />
+      {live && <NotificationsPrompt />}
 
       <Card className="grid grid-cols-2 gap-px bg-line py-0 md:grid-cols-4" aria-label="Today in numbers">
         {[

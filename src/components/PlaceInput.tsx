@@ -64,7 +64,11 @@ export function PlaceInput({
     setLoading(true);
     setError('');
     try {
-      const place = await fetchPlace(s.place_id);
+      // Suggestions carry their coordinates; only an older API makes a second call for them.
+      const place: ApiPlace =
+        s.lat !== undefined && s.lng !== undefined
+          ? { place_id: s.place_id, address: s.description, lat: s.lat, lng: s.lng }
+          : await fetchPlace(s.place_id);
       setChosen(place.address || s.description);
       onChange(place.address || s.description);
       onPlace({ ...place, address: place.address || s.description });
