@@ -7,13 +7,20 @@
 // crowd.svg is the queue of eight people at the counter with the tiffin; bubble-<kind>.svg are
 // the thought bubbles, one per dish kind, placed over the crowd by src/landing/Tastes.tsx.
 
+import { pathToFileURL } from 'node:url';
 import { INK, GREY, WHITE, p, ln, c, e, g, bone, clipped, svgDoc, writeSvg, rasterise } from './style.mjs';
 
 // ---------- a person, drawn facing right with the feet on y = 0 ----------
 
 const neck = (skin) => p('M -8 -494 L -10 -460 L 14 -460 L 12 -494 Z', skin);
 
+// 'fedup' redraws every face tired and cross (flat half-closed eyes, a frown, a furrowed brow), for the
+// "one phone, two hours" story in promo/. The default mood is the landing page's calm one.
+let MOOD = 'calm';
+export const setMood = (m) => { MOOD = m; };
+
 function face(skin, eye = 'calm', mouth = 'smile') {
+  const fedup = MOOD === 'fedup';
   const eyes = {
     calm: 'M 15 -533 Q 20 -529 26 -533',
     down: 'M 16 -527 Q 21 -523 26 -526',
@@ -27,8 +34,9 @@ function face(skin, eye = 'calm', mouth = 'smile') {
   return (
     p('M -24 -548 C -26 -574 26 -580 32 -550 L 34 -534 L 42 -521 L 34 -516 C 35 -506 33 -498 24 -494 C 12 -488 -12 -490 -20 -504 C -26 -514 -26 -534 -24 -548 Z', skin) +
     p('M -6 -537 C -20 -543 -22 -515 -6 -518 Z', skin, 2.6) +
-    ln(eyes[eye], INK, 2.6) +
-    ln(mouths[mouth], INK, 2.6)
+    (fedup
+      ? ln('M 15 -531 L 27 -531', INK, 3) + ln('M 17 -526 Q 21 -524 25 -526', INK, 1.8) + ln('M 12 -543 L 28 -537', INK, 2.8) + ln('M 21 -502 Q 27 -508 33 -502', INK, 2.8)
+      : ln(eyes[eye], INK, 2.6) + ln(mouths[mouth], INK, 2.6))
   );
 }
 
@@ -182,8 +190,9 @@ function personHijab() {
     ln('M -48 -216 l 6 -4 l 6 4 l 6 -4 l 6 4 l 6 -4 l 6 4 l 6 -4 l 6 4 l 6 -4 l 6 4 l 6 -4 l 6 4 l 6 -4 l 6 4 l 6 -4', INK, 1.8),
     p('M -34 -540 C -36 -594 42 -598 44 -548 L 44 -510 C 44 -486 32 -472 22 -464 C 32 -458 42 -442 40 -420 C 12 -410 -30 -414 -46 -430 C -52 -462 -46 -512 -34 -540 Z', GREY),
     p('M 0 -556 C 18 -564 32 -556 34 -544 L 35 -532 L 42 -521 L 35 -516 C 36 -506 33 -498 24 -494 C 14 -490 4 -492 -2 -500 C -6 -512 -6 -544 0 -556 Z', skin),
-    ln('M 16 -527 Q 21 -523 26 -526', INK, 2.6),
-    ln('M 21 -507 Q 26 -503 31 -507', INK, 2.6),
+    ...(MOOD === 'fedup'
+      ? [ln('M 15 -526 L 27 -526', INK, 3), ln('M 12 -538 L 28 -532', INK, 2.8), ln('M 21 -502 Q 27 -508 33 -502', INK, 2.8)]
+      : [ln('M 16 -527 Q 21 -523 26 -526', INK, 2.6), ln('M 21 -507 Q 26 -503 31 -507', INK, 2.6)]),
     ln('M -2 -562 C -10 -540 -10 -505 -2 -490'),
     ln('M -30 -470 C -10 -462 10 -462 24 -470', INK, 2.4),
     ln('M -40 -444 C -20 -436 10 -436 30 -444', INK, 2.4),
@@ -278,7 +287,7 @@ function personReaching() {
   ].join('');
 }
 
-const PEOPLE = [personHoodie, personKurta, personThinking, personMug, personHijab, personCap, personPointing, personReaching];
+export const PEOPLE = [personHoodie, personKurta, personThinking, personMug, personHijab, personCap, personPointing, personReaching];
 
 // ---------- the scene ----------
 
@@ -297,7 +306,7 @@ function trails() {
   }).join('');
 }
 
-function tiffin(x, base) {
+export function tiffin(x, base) {
   const w = 74, h = 30;
   const tiers = [0, 1, 2].map((k) => {
     const y = base - (k + 1) * h - k * 5;
@@ -325,7 +334,7 @@ function crowd() {
 
 // ---------- thought bubbles, one per dish kind ----------
 
-function cloudPath(cx, cy, rx, ry, n = 11, bulge = 0.64) {
+export function cloudPath(cx, cy, rx, ry, n = 11, bulge = 0.64) {
   const pts = Array.from({ length: n }, (_, i) => {
     const a = (i / n) * Math.PI * 2 - Math.PI / 2 + 0.15;
     const j = 1 + Math.sin(i * 2.7) * 0.05;
@@ -500,13 +509,16 @@ function bubble(kind) {
 
 // ---------- write and rasterise ----------
 
-const crowdSvg = writeSvg('crowd.svg', crowd());
-const bubbleSvgs = Object.keys(DISHES).map((kind) => [kind, writeSvg(`bubble-${kind}.svg`, bubble(kind))]);
-console.log(`wrote ${1 + bubbleSvgs.length} SVGs`);
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
 
-if (process.argv.includes('--png')) {
-  rasterise([
-    { svg: crowdSvg, png: 'lunch-line.png', w: SCENE.width, h: SCENE.height, scale: 1.5 },
-    ...bubbleSvgs.map(([kind, svg]) => ({ svg, png: `thoughts/${kind}.png`, w: 200, h: 150, scale: 2 })),
-  ]);
+  const crowdSvg = writeSvg('crowd.svg', crowd());
+  const bubbleSvgs = Object.keys(DISHES).map((kind) => [kind, writeSvg(`bubble-${kind}.svg`, bubble(kind))]);
+  console.log(`wrote ${1 + bubbleSvgs.length} SVGs`);
+
+  if (process.argv.includes('--png')) {
+    rasterise([
+      { svg: crowdSvg, png: 'lunch-line.png', w: SCENE.width, h: SCENE.height, scale: 1.5 },
+      ...bubbleSvgs.map(([kind, svg]) => ({ svg, png: `thoughts/${kind}.png`, w: 200, h: 150, scale: 2 })),
+    ]);
+  }
 }

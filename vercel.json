@@ -1,0 +1,7 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "https://lunchclubbe.vercel.app/api/:path*" },
+    { "source": "/((?!api/|assets/|fonts/|illustrations/|photos/).*)", "destination": "/index.html" }
+  ]
+}
