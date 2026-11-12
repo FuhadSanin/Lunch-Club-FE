@@ -1,6 +1,6 @@
 import { QueryClient, keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from './client';
-import type { ApiPlace, ApiPlaceSuggestion, ApiAddress, ApiBoard, ApiBotStatus, ApiCompanySettings, ApiDish, ApiInvite, ApiItemInput, ApiLunch, ApiMe, ApiMenu, ApiOffered, ApiOrg, ApiPermission, ApiPerson, ApiRestaurant, ApiUser } from './types';
+import type { ApiNotifications, ApiPlace, ApiPlaceSuggestion, ApiAddress, ApiBoard, ApiBotStatus, ApiCompanySettings, ApiDish, ApiInvite, ApiItemInput, ApiLunch, ApiMe, ApiMenu, ApiOffered, ApiOrg, ApiPermission, ApiPerson, ApiRestaurant, ApiUser } from './types';
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -294,5 +294,25 @@ export function useInvitePeople() {
   return useMutation({
     mutationFn: (emails: string[]) => api<ApiInvite[]>('company/invites', { method: 'POST', body: { emails } }),
     onSuccess: () => qc.invalidateQueries({ queryKey: keys.invites }),
+  });
+}
+
+// The bell: what you were told lately. Polled gently; a push toast refreshes it sooner.
+export const useNotifications = (enabled = true) =>
+  useQuery({
+    queryKey: ['notifications'],
+    queryFn: () => api<ApiNotifications>('notifications'),
+    enabled,
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: 'always', // coming back to the tab checks at once (cheap), unlike the rest of the app
+    retry: false,
+  });
+
+// Mark some notifications read, or all of them when no ids are given.
+export function useMarkRead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (ids?: string[]) => api<void>('notifications/read', { method: 'POST', body: ids ? { ids } : {} }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications'] }),
   });
 }

@@ -3,6 +3,7 @@ import { useStore } from '@/store';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { PageTitle } from '@/components/PageTitle';
+import { NotificationsPrompt } from '@/components/Notifications';
 import { lunchDay } from './ExistingLunches';
 
 const hhmm = (iso: string) => {
@@ -25,6 +26,7 @@ export function NoLunch({ canHost }: { canHost: boolean }) {
         title="No lunch running"
         sub={canHost ? 'Start a new lunch and the team can pick from any restaurant near the office.' : 'When the host starts the next lunch, it shows up here and you can pick.'}
       />
+      {live && <NotificationsPrompt />}
       <Card>
         <CardContent className="flex flex-col items-center gap-5 py-10 text-center">
           <img src="/illustrations/tiffin.png" alt="" width={120} height={150} className="h-auto w-24 select-none dark:invert" />

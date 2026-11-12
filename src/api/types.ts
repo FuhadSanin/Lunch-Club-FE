@@ -26,8 +26,12 @@ export type ApiUser = { id: string; name: string; email: string; permissions: Ap
 
 export type ApiMe = ApiUser & { org: ApiOrg | null; public_email?: boolean };
 
+// GET /api/notifications: what you were told lately (the bell).
+export type ApiNotification = { id: string; title: string; body: string; link: string; read: boolean; created_at: string };
+export type ApiNotifications = { unread: number; items: ApiNotification[] };
+
 // GET /api/places?q=: where a lunch can be delivered, as the person types.
-export type ApiPlaceSuggestion = { place_id: string; description: string; main_text: string; secondary_text: string };
+export type ApiPlaceSuggestion = { place_id: string; description: string; main_text: string; secondary_text: string; lat?: number; lng?: number };
 // GET /api/places/<place_id>: the chosen place with its coordinates.
 export type ApiPlace = { place_id: string; address: string; lat: number; lng: number };
 
