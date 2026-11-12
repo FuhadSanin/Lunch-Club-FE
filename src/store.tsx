@@ -33,7 +33,7 @@ export type Action =
   | { type: 'arrive'; restaurantId: string; done: boolean }
   | { type: 'finishLunch' }
   | { type: 'check'; key: string; done: boolean }
-  | { type: 'newSession'; cutoff: string; address: string; restaurantIds: string[] }
+  | { type: 'newSession'; cutoff: string; address: string; restaurantIds: string[]; name?: string; lat?: number; lng?: number }
   | { type: 'updateOrg'; org: Partial<Org> }
   | { type: 'reset' };
 
@@ -160,6 +160,10 @@ export type Live = {
   canManageMembers: boolean; // make people hosts
   orders: ApiOrder[]; // the lunch's Swiggy checkouts, once picks lock
   busy: boolean; // a change is on its way to the API
+  personal: boolean; // a public email: a personal party, not a company
+  lunchName: string; // what the host called the lunch
+  hostName: string; // who is hosting it
+  guest: boolean; // a guest in someone else's party
 };
 
 export type Store = {
