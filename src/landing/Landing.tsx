@@ -152,7 +152,7 @@ function ForHosts() {
             ))}
           </ul>
         </Tile>
-        <Tile className="md:col-span-2" title="It never orders twice." body="The bot checks recent orders before it places one. A retry can't double the bill.">
+        <Tile className="md:col-span-2" title="Nothing gets lost." body="Every dish, restaurant and cooking note is listed for the host, so the order in Swiggy matches the board.">
           <div data-ui className="grid place-items-center rounded-2xl bg-canvas py-8 shadow-card">
             <svg width="56" height="68" viewBox="0 0 56 68" aria-hidden="true">
               <path d="M6 4 h44 v58 l-5.5 -4 l-5.5 4 l-5.5 -4 l-5.5 4 l-5.5 -4 l-5.5 4 l-5.5 -4 l-5.5 4 Z" className="fill-canvas stroke-line-strong" strokeWidth="2" strokeLinejoin="round" />

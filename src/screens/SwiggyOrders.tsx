@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { BotSetup } from './BotSetup';
+import { AUTO_ORDERING, AUTO_ORDERING_NOTICE } from '@/lib/features';
 import { Label } from '@/components/ui/label';
 
 const STATUS: Record<ApiOrderStatus, { label: string; variant: 'secondary' | 'warning' | 'success' }> = {
@@ -35,7 +36,18 @@ export function SwiggyOrders({ orders }: { orders: ApiOrder[] }) {
         )}
       </CardHeader>
       <CardContent>
-        <BotSetup />
+        {AUTO_ORDERING ? (
+          <BotSetup />
+        ) : (
+          <div role="note" className="mb-4 grid gap-1.5 rounded-xl bg-muted/60 p-3 text-[13px]">
+            <p className="font-medium">{AUTO_ORDERING_NOTICE}</p>
+            <ol className="list-decimal pl-5 text-muted-foreground">
+              <li>Open a restaurant below in Swiggy and add its dishes.</li>
+              <li>Paste the cooking note, check out, and pay.</li>
+              <li>Come back and press <strong className="font-medium text-foreground">Mark as ordered</strong> (add the Swiggy order number if you like).</li>
+            </ol>
+          </div>
+        )}
         {orders.length ? (
           <ul className="grid gap-3">
             {orders.map((o) => <OrderRow key={o.id} order={o} />)}
@@ -70,10 +82,10 @@ function OrderRow({ order }: { order: ApiOrder }) {
         </div>
         <Badge variant={s.variant}>{s.label}</Badge>
       </div>
-      {order.last_error && <p className="mt-2 text-[13px] text-warn">{order.last_error}</p>}
-      {order.bot_steps.length > 0 && <BotSteps steps={order.bot_steps} />}
+      {AUTO_ORDERING && order.last_error && <p className="mt-2 text-[13px] text-warn">{order.last_error}</p>}
+      {AUTO_ORDERING && order.bot_steps.length > 0 && <BotSteps steps={order.bot_steps} />}
 
-      {order.status === 'needs_host' && (
+      {AUTO_ORDERING && order.status === 'needs_host' && (
         <Button
           size="sm"
           variant="outline"
@@ -96,7 +108,7 @@ function OrderRow({ order }: { order: ApiOrder }) {
         </ol>
       )}
 
-      {order.status === 'pending' && order.last_error === '' && (
+      {AUTO_ORDERING && order.status === 'pending' && order.last_error === '' && (
         <p className="mt-3 text-[13px] text-muted-foreground">Waiting its turn: the bot orders one restaurant at a time.</p>
       )}
 

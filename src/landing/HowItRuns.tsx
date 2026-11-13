@@ -18,7 +18,7 @@ const STAGES: { title: (c: Ctx) => string; body: (c: Ctx) => string }[] = [
   { title: () => 'The host picks a distance, everyone picks lunch', body: (c) => `The restaurants near the office go on the board, or the host chooses them. One link goes out, and people can change their mind until ${c.cutoff}.` },
   { title: (c) => `Picks lock at ${c.cutoff}`, body: () => 'At the cutoff the board freezes, so the cart stops moving. The host can reopen it if someone is running late.' },
   { title: () => 'The host checks the cart once', body: () => 'Every dish, grouped by restaurant, with who ordered it. One look, one confirm.' },
-  { title: () => 'The order bot places one order', body: () => "It orders on the host's Swiggy account, checks the total against the board, and never places the same order twice." },
+  { title: () => 'The host places the order', body: () => "Each restaurant's dishes and cooking note are listed, ready to add in Swiggy. Automatic ordering is coming once Swiggy approves it." },
   { title: () => 'Food arrives, labelled by name', body: () => "Each person's name goes in the restaurant note. The host ticks people off as they collect and sees who owes what." },
 ];
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;

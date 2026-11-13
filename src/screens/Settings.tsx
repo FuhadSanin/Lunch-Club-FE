@@ -216,7 +216,7 @@ export default function Settings() {
 
         <Separator />
 
-        <Section id="sw-h" title="Your Swiggy account" intro="The order bot places lunch on the host's own Swiggy account. You log in once with your phone and OTP; the login is stored encrypted and never sent to the browser.">
+        <Section id="sw-h" title="Your Swiggy account" intro="Automatic ordering is waiting for Swiggy approval. Until then the host places each order by hand in the Swiggy app, so nothing needs linking here yet.">
           <div>
             <div className="flex flex-wrap items-center gap-2 text-sm font-medium">
               Linked for {PEOPLE.find((p) => p.id === ME_ID)!.name}
@@ -226,7 +226,7 @@ export default function Settings() {
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <Button variant="outline" disabled>Re-link with phone and OTP</Button>
-            <FieldDescription>Available once the order bot service is running.</FieldDescription>
+            <FieldDescription>Available once Swiggy approves automatic ordering.</FieldDescription>
           </div>
         </Section>
 

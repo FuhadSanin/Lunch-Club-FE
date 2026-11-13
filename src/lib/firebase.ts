@@ -34,6 +34,12 @@ export async function idToken(): Promise<string | null> {
   return auth.currentUser ? auth.currentUser.getIdToken() : null;
 }
 
+// A new token right away, carrying any access the server granted since the last one (Firestore reads it).
+export async function refreshIdToken(): Promise<void> {
+  await ready;
+  await auth.currentUser?.getIdToken(true);
+}
+
 export async function signInWithGoogle(): Promise<User> {
   const provider = new GoogleAuthProvider();
   provider.setCustomParameters({ prompt: 'select_account' }); // so people can pick their work account

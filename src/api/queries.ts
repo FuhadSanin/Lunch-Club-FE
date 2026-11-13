@@ -46,8 +46,9 @@ export const useMe = () =>
 export const useMembers = (enabled = true) =>
   useQuery({ queryKey: keys.members, queryFn: () => api<ApiUser[]>('company/members'), enabled, staleTime: 5 * 60_000 });
 
-// Nothing pushes changes to the browser yet (the Firestore board is off locally), so a lunch that is
-// still running is polled, slowly. The Firestore listener replaces this once it's on.
+// A lunch that is still running is polled. While its live board is listened to (lib/live-board.ts),
+// every change arrives at once, so the poll is only a slow safety net; without it, it's every 15s.
+export const liveBoards = new Set<string>();
 const MOVING = new Set(['open', 'locked', 'confirmed', 'placed']);
 
 export const useLunches = (enabled = true) =>
@@ -65,7 +66,8 @@ export const useBoard = (id: string | undefined) =>
     queryKey: keys.board(id ?? 'none'),
     queryFn: () => api<ApiBoard>(`lunches/${id}`),
     enabled: !!id,
-    refetchInterval: (q) => (q.state.data && MOVING.has(q.state.data.status) ? 15_000 : false),
+    refetchInterval: (q) =>
+      q.state.data && MOVING.has(q.state.data.status) ? (liveBoards.has(q.state.data.id) ? 120_000 : 15_000) : false,
   });
 
 export const useRestaurantsQuery = (place: Place, q: string, enabled: boolean) =>
