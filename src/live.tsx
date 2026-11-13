@@ -12,6 +12,7 @@ import {
 } from '@/api/queries';
 import { ApiError } from '@/api/client';
 import { isDemoPreview } from '@/auth';
+import { useLiveBoard } from '@/lib/live-board';
 import type { ApiBoard, ApiCompanySettings, ApiItem, ApiItemInput, ApiLunch, ApiMe, ApiOffered, ApiPermission, ApiPerson } from '@/api/types';
 import type { Org } from '@/data/demo';
 
@@ -168,8 +169,7 @@ function ServerDown({ error, onRetry }: { error: Error; onRetry: () => void }) {
         <h1 className="text-lg font-semibold">Can't reach the lunch server</h1>
         <p className="text-muted-foreground">{error.message}</p>
         <p className="text-muted-foreground">
-          Start the API with <code className="font-mono">docker compose up -d api</code> (or <code className="font-mono">make bot-api</code> to
-          use the order bot), then try again. Nothing here is demo data.
+          Start the API with <code className="font-mono">docker compose up -d db api</code>, then try again. Nothing here is demo data.
         </p>
         <button type="button" onClick={onRetry} className="mx-auto rounded-full bg-foreground px-4 py-2 text-background">
           Try again
@@ -242,6 +242,7 @@ function LiveBridge({ me, children }: { me: ApiMe; children: ReactNode }) {
     lunches.data?.find((l) => l.id === (linkedId ?? pinned) && (linkedId || isActive(l, extras))) ??
     currentLunch(lunches.data, extras);
   const board = useBoard(lunch?.id);
+  useLiveBoard(lunch?.id);
   const now = useClock();
   const busy = useIsMutating() > 0;
 
@@ -504,3 +505,4 @@ function orgFrom(s: ApiCompanySettings, invites: string[], fallback: Org): Org {
     office: s.office_lat !== null && s.office_lng !== null ? { lat: s.office_lat, lng: s.office_lng } : fallback.office,
   };
 }
+
