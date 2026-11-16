@@ -94,7 +94,7 @@ export function Setup() {
               <img src="/brand/tiffmate-logo.png" alt="" width={48} height={48} className="size-12 flex-none rounded-xl border bg-white" />
               <p className="min-w-0 flex-1 basis-48 text-[13px] leading-5 text-muted-foreground">
                 <span className="block text-sm font-medium text-foreground">Tiffmate logo</span>
-                Use it as the icon when ChatGPT or Claude asks for one while you create the connector.
+                Use it as the icon when ChatGPT or Claude asks for one while you create the connector. The PNG is 256 × 256 and under 10 KB, which is what ChatGPT accepts.
               </p>
               <div className="flex flex-none items-center gap-2">
                 <Button asChild size="sm"><a href="/brand/tiffmate-logo.png" download="tiffmate-logo.png"><Icon name="download" size={14} /> Download logo</a></Button>
