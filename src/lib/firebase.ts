@@ -6,15 +6,24 @@ import { initializeApp } from 'firebase/app';
 import { GoogleAuthProvider, getAuth, onAuthStateChanged, signInWithPopup, signOut, type User } from 'firebase/auth';
 import { useSyncExternalStore } from 'react';
 
-// Firebase's web config names the project; it is meant to ship in the page, it isn't a secret.
-export const firebaseApp = initializeApp({
-  apiKey: 'AIzaSyDa3iuFZEXACtEhB5QUxLAxdPe_9mm1y-w',
-  authDomain: 'lunchclub-fa2d4.firebaseapp.com',
-  projectId: 'lunchclub-fa2d4',
-  storageBucket: 'lunchclub-fa2d4.firebasestorage.app',
-  messagingSenderId: '982646408056',
-  appId: '1:982646408056:web:1790fa13c4c494489bbe8d',
-});
+// Which Firebase project this build talks to, from the environment (.env locally, the host's settings
+// when deployed; see .env.example). These values end up in the page for anyone to read, as Firebase
+// intends: what protects the project is its authorized domains and the key's restrictions in Google
+// Cloud, not hiding them. Keeping them out of the code lets each environment use its own project.
+const env = import.meta.env;
+export const firebaseConfig = {
+  apiKey: env.VITE_FIREBASE_API_KEY,
+  authDomain: env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: env.VITE_FIREBASE_APP_ID,
+};
+const missing = Object.entries(firebaseConfig).filter(([, value]) => !value).map(([name]) => name);
+if (missing.length)
+  throw new Error(`Firebase isn't set up (${missing.join(', ')} missing). Copy .env.example to .env, fill in the VITE_FIREBASE_ values, and restart.`);
+
+export const firebaseApp = initializeApp(firebaseConfig);
 const auth = getAuth(firebaseApp);
 
 // Undefined until Firebase has restored (or not) the sign-in saved in this browser.

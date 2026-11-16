@@ -32,7 +32,7 @@ export function JoinParty({ invite }: { invite: NonNullable<Live['invite']> }) {
     <Dialog open onOpenChange={(open) => !open && (window.location.hash = '#/')}>
       <DialogContent className="sm:max-w-[420px]">
         <div className="grid justify-items-center gap-4 pt-2 text-center">
-          <img src="/illustrations/tiffin.png" alt="" width={96} height={120} className="h-auto w-20 select-none dark:invert" />
+          <img src="/illustrations/tiffin.webp" alt="" width={96} height={120} className="h-auto w-20 select-none dark:invert" />
           <div className="grid gap-1.5">
             <DialogTitle className="text-xl tracking-[-0.03em]">You're invited to a lunch party</DialogTitle>
             <DialogDescription>

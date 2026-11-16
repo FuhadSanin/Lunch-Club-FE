@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { restaurantById } from '@/data/menus';
+import { restaurantById } from '@/data/catalog';
 import { useLunch, useStore } from '@/store';
 import { FoodPhoto, Icon, rupees } from '@/ui';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +13,7 @@ import { originOf, useCelebrate } from '@/components/celebrate';
 import { ReviewProgress } from '../ReviewCard';
 import { SwiggyOrders } from '../SwiggyOrders';
 import { cn, spring } from '@/lib/cn';
+import { usePending } from '@/lib/use-pending';
 
 // Step 4: the host confirms, and the Swiggy bot adds each restaurant's dishes to one cart and checks
 // out. Each restaurant shows "Adding to cart…", then "Added to cart", as the bot gets to it.
@@ -24,6 +25,7 @@ export default function PlaceOrder() {
   const { state, dispatch, live } = useStore();
   const lunch = useLunch();
   const celebrate = useCelebrate();
+  const { pending, run } = usePending();
   const [confirming, setConfirming] = useState(false);
   const timers = useRef<number[]>([]);
   const { session } = state;
@@ -55,7 +57,7 @@ export default function PlaceOrder() {
     setConfirming(false);
     if (live) {
       // The API confirms the cart; the restaurants then go in one by one (by the bot, or ticked here).
-      void Promise.resolve(dispatch({ type: 'startPlacing' })).catch(() => undefined);
+      void run('confirm', () => dispatch({ type: 'startPlacing' })).catch(() => undefined); // the reason is already a toast
       return;
     }
     // The demo's bot: opens Swiggy, adds one restaurant at a time, checks the total, checks out.
@@ -96,7 +98,7 @@ export default function PlaceOrder() {
       actions={st === 'locked' && (
         <>
           <UnlockPicks variant="ghost" />
-          <Button disabled={!lunch.dishes} onClick={() => setConfirming(true)}>Confirm and place order</Button>
+          <Button disabled={!lunch.dishes || pending('confirm')} onClick={() => setConfirming(true)}>{pending('confirm') ? 'Confirming…' : 'Confirm and place order'}</Button>
         </>
       )}
     >
@@ -147,8 +149,14 @@ export default function PlaceOrder() {
                           Adding to cart…
                         </motion.span>
                       ) : live && st !== 'locked' ? (
-                        <Button key="tick" size="sm" variant="outline" onClick={() => dispatch({ type: 'check', key: `r:${g.restaurantId}`, done: true })}>
-                          Added to cart
+                        <Button
+                          key="tick"
+                          size="sm"
+                          variant="outline"
+                          disabled={pending(g.restaurantId)}
+                          onClick={() => void run(g.restaurantId, () => dispatch({ type: 'check', key: `r:${g.restaurantId}`, done: true })).catch(() => undefined)}
+                        >
+                          {pending(g.restaurantId) ? 'Saving…' : 'Added to cart'}
                         </Button>
                       ) : (
                         <span key="wait" className="text-[13px] text-muted-foreground">Waiting</span>
@@ -207,7 +215,7 @@ export default function PlaceOrder() {
             <Card>
               <CardContent className="grid gap-3 py-6 text-center text-sm">
                 <p className="text-muted-foreground">Delivered to {session.address}. Swiggy adds its delivery fee and taxes.</p>
-                <Button size="lg" disabled={!lunch.dishes} onClick={() => setConfirming(true)}>Confirm and place order</Button>
+                <Button size="lg" disabled={!lunch.dishes || pending('confirm')} onClick={() => setConfirming(true)}>{pending('confirm') ? 'Confirming…' : 'Confirm and place order'}</Button>
               </CardContent>
             </Card>
           )}

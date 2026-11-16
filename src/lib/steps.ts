@@ -1,4 +1,4 @@
-import type { Session } from '@/data/demo';
+import type { Session } from '@/model';
 import type { CartGroup } from '@/store';
 
 // Running a lunch, as six steps anyone can follow, one after another. The sidebar, Today's lunch
@@ -14,8 +14,6 @@ export const STEPS: { id: StepId; route: string; label: string; hint: string; ic
   { id: 'distribute', route: '/distribute', label: 'Distribute', hint: 'Tick each person when they get their food.', icon: 'today' },
   { id: 'finish', route: '/finish', label: 'Enjoy your meal', hint: 'Close the lunch, so the next one can start. Then eat!', icon: 'check' },
 ];
-
-export const stepByRoute = (route: string) => STEPS.find((s) => s.route === route);
 
 type Progress = { done: number; of: number };
 

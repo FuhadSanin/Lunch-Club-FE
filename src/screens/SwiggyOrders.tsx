@@ -77,7 +77,7 @@ function OrderRow({ order }: { order: ApiOrder }) {
           <div className="text-sm font-medium">{order.restaurants.join(', ')}</div>
           <div className="text-[13px] text-muted-foreground num">
             {order.restaurant_count} {order.restaurant_count === 1 ? 'restaurant' : 'restaurants'} · {rupees(order.total_paise / 100)}
-            {order.swiggy_order_id && <> · #{order.swiggy_order_id}</>}
+            {order.platform_order_id && <> · #{order.platform_order_id}</>}
           </div>
         </div>
         <Badge variant={s.variant}>{s.label}</Badge>
@@ -121,7 +121,7 @@ function OrderRow({ order }: { order: ApiOrder }) {
             disabled={placed.isPending}
             onClick={() =>
               placed.mutate(
-                { orderId: order.id, swiggyOrderId: number.trim() },
+                { orderId: order.id, platformOrderId: number.trim() },
                 {
                   onSuccess: () => toast.success('Marked as ordered', { description: 'The next restaurant starts if one is waiting.' }),
                   onError: (err) => toast.error("Couldn't mark it as ordered", { description: err.message }),

@@ -78,15 +78,6 @@ const ago = (iso: string) => {
 };
 const isToday = (iso: string) => new Date(iso).toDateString() === new Date().toDateString();
 
-// A link in a notification points at the web app; only its #/route matters, wherever it was sent from.
-const routeOf = (link: string) => {
-  try {
-    return new URL(link).hash;
-  } catch {
-    return link.startsWith('#') ? link : '';
-  }
-};
-
 // What a notification is about, from its title: each kind has its own icon and the app's colour for it
 // (gold for a new lunch, blue once ordered, green when it arrives, amber when the host is needed).
 type Kind = { icon: string; tint: string; label: string };
@@ -144,10 +135,10 @@ export function NotificationsBell({ className }: { className?: string }) {
     { label: 'Earlier', items: items.filter((n) => !isToday(n.created_at)) },
   ].filter((g) => g.items.length);
 
-  const openOne = (id: string, link: string, read: boolean) => {
+  // Every notification is about the lunch you are in, so tapping one marks it read and shows that lunch.
+  const openOne = (id: string, read: boolean) => {
     if (!read) markRead.mutate([id]);
-    const route = routeOf(link);
-    if (route) window.location.hash = route;
+    window.location.hash = '/';
     setOpen(false);
   };
 
@@ -197,7 +188,7 @@ export function NotificationsBell({ className }: { className?: string }) {
                     <li key={n.id}>
                       <button
                         type="button"
-                        onClick={() => openOne(n.id, n.link, n.read)}
+                        onClick={() => openOne(n.id, n.read)}
                         className={cn('group flex w-full items-start gap-3 rounded-xl px-2.5 py-2.5 text-left transition-colors hover:bg-muted/70', !n.read && 'bg-brand-soft/40')}
                       >
                         <span className={cn('relative grid size-10 flex-none place-items-center rounded-full', k.tint)} aria-hidden="true">
@@ -212,7 +203,6 @@ export function NotificationsBell({ className }: { className?: string }) {
                           {n.body && <span className="mt-0.5 line-clamp-2 block text-[13px] leading-snug text-muted-foreground">{n.body}</span>}
                           <span className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
                             {k.label}
-                            {routeOf(n.link) && <><span aria-hidden="true">·</span><span className="text-brand group-hover:underline">Open</span></>}
                           </span>
                         </span>
                         {!n.read && <span className="sr-only">Unread</span>}

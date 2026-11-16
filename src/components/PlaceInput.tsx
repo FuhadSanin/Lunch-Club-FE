@@ -14,6 +14,7 @@ export function PlaceInput({
   onPlace,
   placeholder = 'Search a place, building or area…',
   near,
+  chosenText,
   className,
 }: {
   id?: string;
@@ -22,6 +23,7 @@ export function PlaceInput({
   onPlace: (place: ApiPlace) => void;
   placeholder?: string;
   near?: { lat: number; lng: number };
+  chosenText?: string; // the address of a place already chosen outside this box
   className?: string;
 }) {
   const listId = useId();
@@ -34,11 +36,13 @@ export function PlaceInput({
   // Ask only once typing pauses.
   const [settled, setSettled] = useState(value.trim());
   useEffect(() => {
-    const timer = window.setTimeout(() => setSettled(value.trim()), 250);
+    const timer = window.setTimeout(() => setSettled(value.trim()), 150);
     return () => window.clearTimeout(timer);
   }, [value]);
   // Once a place is chosen the box holds its full address; that is not a new search.
-  const [chosen, setChosen] = useState('');
+  const [picked_, setChosen] = useState('');
+  // A place chosen somewhere else (a recent address) is just as chosen: no search for it, and it is ticked.
+  const chosen = picked_ || (chosenText ?? '');
   const typed = value.trim();
   const asking = settled.length >= 2 && settled !== chosen && settled === typed;
   const suggestions = usePlaceSuggestions(asking ? settled : '', near);

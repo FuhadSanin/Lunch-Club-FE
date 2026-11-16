@@ -1,66 +1,9 @@
-// Demo data for the first build. Everything here is sample content that the Django API will
-// replace: the team, the people and their picks are invented (no real names or emails).
-// The restaurants and dishes come from the proof of concept's saved Swiggy menus (menus.ts).
+// Sample data only: the invented team, their picks and the demo lunch (no real names or emails).
+// The landing page and /?demo=signed-in run on it. The shapes are in src/model.ts.
 
-import { RESTAURANTS, allDishes } from './menus';
-
-// Two roles: team members pick lunch; the host starts lunches, places the order and manages the company.
-export type Role = 'member' | 'host';
-
-export type Person = {
-  id: string;
-  name: string;
-  email: string;
-  hue: number; // stable identity tint, not data
-};
-
-export type PickLine = { dishId: string; qty: number };
-
-export type Pick = {
-  items: PickLine[];
-  note: string;
-  skipped: boolean;
-  updatedAt: string; // HH:MM, demo clock
-  // Completed the order or skipped: final until the host reopens it.
-  done?: boolean;
-};
-
-export type BotStep = { at: string; text: string };
-
-export type SessionStatus = 'open' | 'locked' | 'placing' | 'placed' | 'delivered';
-
-export type Session = {
-  id: string;
-  title: string;
-  date: string; // ISO date
-  cutoff: string; // HH:MM
-  address: string;
-  restaurantIds: string[];
-  hostId: string;
-  status: SessionStatus;
-  orderRef: string | null;
-  bot: BotStep[];
-  handedOut: Record<string, boolean>;
-  // The host's review: "r:<restaurant id>" once its dishes are in the Swiggy cart, "p:<person id>" once that
-  // person's order is checked. Done cards collapse.
-  checked?: Record<string, boolean>;
-  arrived?: Record<string, boolean>; // restaurant id → its food has been collected
-  completed?: boolean; // the host closed the lunch after handing everything out
-};
-
-export type RestaurantMode = 'nearby' | 'manual';
-
-export type Org = {
-  name: string;
-  team: string;
-  emailDomain: string;
-  autoJoin: boolean;
-  addresses: string[];
-  invites: string[];
-  restaurantMode: RestaurantMode; // how a new lunch chooses its restaurants by default
-  radiusKm: number; // "nearby": offer restaurants within this distance of the office
-  office: { lat: number; lng: number }; // where Swiggy restaurants and menus are looked up from
-};
+import type { Org, Person, Pick, PickLine, Session } from '@/model';
+import { allDishes } from './catalog';
+import { RESTAURANTS } from './menus';
 
 export const DEMO_NOW = '11:48'; // the demo clock, so every screen reads the same time
 
@@ -84,15 +27,6 @@ export const PEOPLE: Person[] = [
     hue: Math.round((i * 137.5 + 20) % 360),
   })),
 ];
-
-// People from the API join the demo team here, so names resolve for both. Their ids are UUIDs,
-// so they never clash with the demo's.
-const known = new Map<string, Person>();
-export const rememberPeople = (people: Person[]) => people.forEach((p) => known.set(p.id, p));
-export const personById = (id: string) => PEOPLE.find((p) => p.id === id) ?? known.get(id);
-
-// A stable tint for someone the demo doesn't know, from their id.
-export const hueOf = (id: string) => [...id].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 360, 7);
 
 // Today's demo lunch: a local favourite and four well-known chains.
 export const SESSION_RESTAURANTS = ['263840', 'kfc', 'burger-king', 'saravana-bhavan', 'baskin-robbins'];

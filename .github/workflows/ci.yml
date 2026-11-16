@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  web:
+    name: Types, lint, tests, build, dependency audit
+    runs-on: ubuntu-latest
+    # The build refuses to run without the Firebase project's settings. CI only checks that the app
+    # builds, so stand-ins are enough here; the real values are set where it is deployed.
+    env:
+      VITE_FIREBASE_API_KEY: ci-placeholder
+      VITE_FIREBASE_AUTH_DOMAIN: ci-placeholder.firebaseapp.com
+      VITE_FIREBASE_PROJECT_ID: ci-placeholder
+      VITE_FIREBASE_STORAGE_BUCKET: ci-placeholder.firebasestorage.app
+      VITE_FIREBASE_MESSAGING_SENDER_ID: "0"
+      VITE_FIREBASE_APP_ID: ci-placeholder
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      - name: vercel.json is valid JSON
+        run: node -e "JSON.parse(require('fs').readFileSync('vercel.json','utf8'))"
+      # Fails the build on critical advisories in what ships to the browser. High ones in
+      # firebase -> @grpc/grpc-js and the build-time shadcn CLI are listed below but don't
+      # fail it: npm's only fix is a major downgrade (firebase 9, shadcn 1), and the
+      # vulnerable code is not in the built app. Revisit when firebase or shadcn publish
+      # a fix; then raise this to --audit-level=high.
+      - run: npm audit --omit=dev --audit-level=critical
+      - name: Full audit report (informational)
+        run: npm audit --omit=dev || true

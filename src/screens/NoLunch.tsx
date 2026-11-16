@@ -29,7 +29,7 @@ export function NoLunch({ canHost }: { canHost: boolean }) {
       {live && <NotificationsPrompt />}
       <Card>
         <CardContent className="flex flex-col items-center gap-5 py-10 text-center">
-          <img src="/illustrations/tiffin.png" alt="" width={120} height={150} className="h-auto w-24 select-none dark:invert" />
+          <img src="/illustrations/tiffin.webp" alt="" width={120} height={150} className="h-auto w-24 select-none dark:invert" />
           <div className="grid gap-1.5">
             <p className="max-w-sm text-sm text-muted-foreground">
               {canHost

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Command as CommandPrimitive } from 'cmdk';
-import { allDishes, type Restaurant } from '@/data/menus';
+import type { Restaurant } from '@/model';
+import { allDishes } from '@/data/catalog';
 import { useDishSearch, useRestaurants, type FoundDish } from '@/data/swiggy';
 import { Command, CommandGroup, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
 import { Badge } from '@/components/ui/badge';

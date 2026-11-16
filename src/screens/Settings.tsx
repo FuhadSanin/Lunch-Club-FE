@@ -1,12 +1,13 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
-import { RADIUS_RANGE, type RestaurantMode } from '@/data/demo';
-import { restaurantsWithin } from '@/data/menus';
+import type { RestaurantMode } from '@/model';
+import { RADIUS_RANGE } from '@/data/demo';
+import { restaurantsWithin } from '@/data/catalog';
 import { useStore } from '@/store';
-import { useMembers, useSetPermissions } from '@/api/queries';
-import { ALL_PERMISSIONS, MEMBER_PERMISSIONS, isHost, type ApiUser } from '@/api/types';
-import { hueOf, personById } from '@/data/demo';
+import { useMembers, useRoles, useSetRoles } from '@/api/queries';
+import { HOST_ROLE, MEMBER_ROLE, isHost, type ApiPlace, type ApiUser } from '@/api/types';
+import { hueOf, personById } from '@/data/people';
 import { Avatar, Icon } from '@/ui';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -21,7 +22,8 @@ import { Field, FieldContent, FieldDescription, FieldError, FieldLabel } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { PageTitle } from '@/components/PageTitle';
 import { PlaceInput } from '@/components/PlaceInput';
-import { spring } from '@/lib/cn';
+import { cn, spring } from '@/lib/cn';
+import { usePending } from '@/lib/use-pending';
 import { playSound, setSoundOn, soundOn } from '@/lib/sound';
 
 function Section({ id, title, intro, children }: { id: string; title: string; intro: ReactNode; children: ReactNode }) {
@@ -51,14 +53,21 @@ export default function Settings() {
   const [emails, setEmails] = useState('');
   const [inviteError, setInviteError] = useState('');
   const [newAddr, setNewAddr] = useState('');
+  // Where the address typed is, when it was picked from the suggestions: saved with it.
+  const [newPlace, setNewPlace] = useState<ApiPlace | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
   const [sounds, setSounds] = useState(soundOn);
   const nearby = restaurantsWithin(org.radiusKm);
 
+  // Each save disables its button until the API has answered, and says "saved" only once it has.
+  // (A failure is already on screen as a toast, so the rejections below are left alone.)
+  const { pending, run } = usePending();
+  const save = (key: string, change: Partial<typeof org>, then: () => void) =>
+    void run(key, () => dispatch({ type: 'updateOrg', org: change })).then(then, () => undefined);
+
   const saveCompany = (e: React.FormEvent) => {
     e.preventDefault();
-    dispatch({ type: 'updateOrg', org: { name: name.trim() || org.name, team: team.trim() || org.team, emailDomain: domain.trim().replace(/^@/, '') } });
-    toast.success('Company saved');
+    save('company', { name: name.trim() || org.name, team: team.trim() || org.team, emailDomain: domain.trim().replace(/^@/, '') }, () => toast.success('Company saved'));
   };
 
   const invite = (e: React.FormEvent) => {
@@ -68,26 +77,38 @@ export default function Settings() {
       setInviteError('Add at least one email address, like priya@company.com.');
       return;
     }
-    dispatch({ type: 'updateOrg', org: { invites: [...new Set([...org.invites, ...list])] } });
-    setEmails('');
     setInviteError('');
-    toast.success(`${list.length} ${list.length === 1 ? 'invite' : 'invites'} added`);
+    save('invite', { invites: [...new Set([...org.invites, ...list])] }, () => {
+      setEmails('');
+      toast.success(`${list.length} ${list.length === 1 ? 'invite' : 'invites'} ${live ? 'sent' : 'added'}`);
+    });
   };
+
+  // Off the list hosts choose from. Lunches already delivered there keep the address.
+  const removeAddress = (a: string) =>
+    save(`address:${a}`, { addresses: org.addresses.filter((x) => x !== a) }, () =>
+      toast('Address removed', {
+        description: a,
+        action: { label: 'Undo', onClick: () => save(`address:${a}`, { addresses: [...org.addresses.filter((x) => x !== a), a], places: org.places }, () => undefined) },
+      }),
+    );
 
   const addAddress = (e: React.FormEvent) => {
     e.preventDefault();
     const a = newAddr.trim();
     if (!a) return;
-    if (org.addresses.includes(a)) return void toast('That address is already saved', { description: a });
-    dispatch({ type: 'updateOrg', org: { addresses: [...org.addresses, a] } });
-    setNewAddr('');
-    toast.success('Address added', { description: a });
+    if (org.addresses.some((x) => x.toLowerCase() === a.toLowerCase())) return void toast('That address is already saved', { description: a });
+    save('address:new', { addresses: [...org.addresses, a], places: { ...org.places, ...(newPlace && newPlace.address === a && { [a]: { lat: newPlace.lat, lng: newPlace.lng } }) } }, () => {
+      setNewAddr('');
+      setNewPlace(null);
+      toast.success('Address added', { description: a });
+    });
   };
 
 
   return (
     <div>
-      <PageTitle title="Settings" sub={`${org.name}: ${PEOPLE.length} members, ${org.addresses.length} office addresses. The host manages everything here.`} />
+      <PageTitle title="Settings" sub={`${org.name}: ${PEOPLE.length} members, ${org.addresses.length} addresses. The host manages everything here.`} />
 
       <div className="grid gap-8">
         <Section id="co-h" title="Company" intro="The name people see on every lunch, and who can join without an invite.">
@@ -110,63 +131,69 @@ export default function Settings() {
                 <FieldLabel htmlFor="co-join">Let company emails join without an invite</FieldLabel>
                 <FieldDescription>Turn off to allow invited people only.</FieldDescription>
               </FieldContent>
-              <Switch id="co-join" checked={org.autoJoin} onCheckedChange={(v) => dispatch({ type: 'updateOrg', org: { autoJoin: v } })} />
+              <Switch id="co-join" checked={org.autoJoin} disabled={pending('join')} onCheckedChange={(v) => save('join', { autoJoin: v }, () => toast.success(v ? 'Anyone at the company can join' : 'Only invited people can join'))} />
             </Field>
-            <Button type="submit" className="w-fit">Save company</Button>
+            <Button type="submit" className="w-fit" disabled={pending('company')}>{pending('company') ? 'Saving…' : 'Save company'}</Button>
           </form>
         </Section>
 
         <Separator />
 
-        <Section
-          id="lunch-h"
-          title="Lunch defaults"
-          intro={<p>How a new lunch chooses its restaurants. Hosts can still change it when they start a lunch.</p>}
-        >
-          <Field>
-            <FieldLabel>Restaurants for a new lunch</FieldLabel>
-            <div>
-            <Segmented<RestaurantMode>
-              className="w-fit"
-              label="Restaurants for a new lunch"
-              value={org.restaurantMode}
-              onChange={(restaurantMode) => dispatch({ type: 'updateOrg', org: { restaurantMode } })}
-              options={[
-                { value: 'nearby', label: 'Nearby' },
-                { value: 'manual', label: 'Choose myself' },
-              ]}
-            />
-            </div>
-          </Field>
-          <Field>
-            <div className="flex items-baseline justify-between gap-3">
-              <FieldLabel htmlFor="def-radius">Nearby means within {km(org.radiusKm)}</FieldLabel>
-              <span className="text-[13px] text-muted-foreground num">{nearby.length} restaurants</span>
-            </div>
-            <Slider
-              id="def-radius"
-              min={RADIUS_RANGE.min}
-              max={RADIUS_RANGE.max}
-              step={RADIUS_RANGE.step}
-              value={[org.radiusKm]}
-              onValueChange={([radiusKm]) => dispatch({ type: 'updateOrg', org: { radiusKm } })}
-              aria-label="Default distance from the office"
-            />
-            <FieldDescription>
-              {nearby.length
-                ? `Nearest first: ${nearby.map((r) => r.name).join(', ')}.`
-                : 'No restaurants in range yet. Widen it.'}
-            </FieldDescription>
-          </Field>
-        </Section>
+        {/* The API keeps no lunch defaults: a host chooses nearby or by hand, and how far, when starting a lunch. */}
+        {!live && (
+          <>
+            <Section
+              id="lunch-h"
+              title="Lunch defaults"
+              intro={<p>How a new lunch chooses its restaurants. Hosts can still change it when they start a lunch.</p>}
+            >
+              <Field>
+                <FieldLabel>Restaurants for a new lunch</FieldLabel>
+                <div>
+                <Segmented<RestaurantMode>
+                  className="w-fit"
+                  label="Restaurants for a new lunch"
+                  value={org.restaurantMode}
+                  onChange={(restaurantMode) => dispatch({ type: 'updateOrg', org: { restaurantMode } })}
+                  options={[
+                    { value: 'nearby', label: 'Nearby' },
+                    { value: 'manual', label: 'Choose myself' },
+                  ]}
+                />
+                </div>
+              </Field>
+              <Field>
+                <div className="flex items-baseline justify-between gap-3">
+                  <FieldLabel htmlFor="def-radius">Nearby means within {km(org.radiusKm)}</FieldLabel>
+                  <span className="text-[13px] text-muted-foreground num">{nearby.length} restaurants</span>
+                </div>
+                <Slider
+                  id="def-radius"
+                  min={RADIUS_RANGE.min}
+                  max={RADIUS_RANGE.max}
+                  step={RADIUS_RANGE.step}
+                  value={[org.radiusKm]}
+                  onValueChange={([radiusKm]) => dispatch({ type: 'updateOrg', org: { radiusKm } })}
+                  aria-label="Default distance from the office"
+                />
+                <FieldDescription>
+                  {nearby.length
+                    ? `Nearest first: ${nearby.map((r) => r.name).join(', ')}.`
+                    : 'No restaurants in range yet. Widen it.'}
+                </FieldDescription>
+              </Field>
+            </Section>
 
-        <Separator />
+            <Separator />
+
+          </>
+        )}
 
         <Section
           id="inv-h"
           title="Invite people"
           intro={<>
-            <p>Each person gets an email with a sign-in link. Emails go out once the Django back end is connected; this build keeps the list.</p>
+            <p>{live ? 'Each person gets an email with a sign-in link.' : 'Each person gets an email with a sign-in link. This is the demo, so no email is sent: it only keeps the list.'}</p>
             <p>Preview: “{org.team} uses Lunch Board for group lunch. Sign in with Google to pick your food.”</p>
           </>}
         >
@@ -176,7 +203,7 @@ export default function Settings() {
               <Textarea aria-required="true" id="inv" name="emails" autoComplete="off" spellCheck={false} aria-invalid={!!inviteError} value={emails} onChange={(e) => { setEmails(e.target.value); setInviteError(''); }} placeholder="priya@company.com, arjun@company.com…" />
               {inviteError ? <FieldError>{inviteError}</FieldError> : <FieldDescription>Separate addresses with commas or new lines.</FieldDescription>}
             </Field>
-            <Button type="submit" className="w-fit">Add invites</Button>
+            <Button type="submit" className="w-fit" disabled={pending('invite')}>{pending('invite') ? 'Sending…' : live ? 'Send invites' : 'Add invites'}</Button>
             {org.invites.length > 0 && (
               <ul className="grid gap-2">
                 <AnimatePresence initial={false}>
@@ -193,11 +220,15 @@ export default function Settings() {
 
         <Separator />
 
-        <Section id="addr-h" title="Office addresses" intro="Hosts choose one when they start a lunch, and nearby restaurants are measured from it. It must match an address saved on the host's Swiggy account.">
+        <Section id="addr-h" title="Addresses" intro="Hosts choose one when they start a lunch, and nearby restaurants are measured from it. It must match an address saved on the host's Swiggy account.">
+          {org.addresses.length === 0 && <p className="rounded-xl border border-dashed border-input p-4 text-sm text-muted-foreground">No addresses yet. Add where lunch is delivered, so hosts can choose it.</p>}
           <ul className="grid gap-2">
             <AnimatePresence initial={false}>
               {org.addresses.map((a) => (
-                <motion.li key={a} layout initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} transition={spring} className={listItem}>{a}</motion.li>
+                <motion.li key={a} layout initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, height: 0 }} transition={spring} className={cn(listItem, 'justify-between')}>
+                  <span className="min-w-0 break-words">{a}</span>
+                  <Button type="button" size="sm" variant="ghost" className="shrink-0 text-muted-foreground" aria-label={`Remove ${a}`} disabled={pending(`address:${a}`)} onClick={() => removeAddress(a)}>{pending(`address:${a}`) ? 'Removing…' : 'Remove'}</Button>
+                </motion.li>
               ))}
             </AnimatePresence>
           </ul>
@@ -206,8 +237,8 @@ export default function Settings() {
               <FieldLabel htmlFor="new-addr" required>Add an address</FieldLabel>
               <div className="flex items-start gap-2">
                 {/* The same place search as Start lunch: suggestions while typing, or keep what you typed. */}
-                <PlaceInput id="new-addr" className="flex-1" value={newAddr} near={org.office} onChange={setNewAddr} onPlace={(p) => setNewAddr(p.address)} placeholder="Search a building, area or landmark…" />
-                <Button type="submit" variant="outline" className="h-10" disabled={!newAddr.trim()}>Add</Button>
+                <PlaceInput id="new-addr" className="flex-1" value={newAddr} near={org.office} onChange={(t) => { setNewAddr(t); setNewPlace(null); }} onPlace={(p) => { setNewAddr(p.address); setNewPlace(p); }} placeholder="Search a building, area or landmark…" />
+                <Button type="submit" variant="outline" className="h-10" disabled={!newAddr.trim() || pending('address:new')}>{pending('address:new') ? 'Adding…' : 'Add'}</Button>
               </div>
               <FieldDescription>Choose a place from the suggestions, or type the exact address from your Swiggy account.</FieldDescription>
             </Field>
@@ -216,17 +247,15 @@ export default function Settings() {
 
         <Separator />
 
-        <Section id="sw-h" title="Your Swiggy account" intro="Automatic ordering is waiting for Swiggy approval. Until then the host places each order by hand in the Swiggy app, so nothing needs linking here yet.">
+        <Section id="sw-h" title="Ordering on Swiggy" intro="How the order reaches Swiggy once the picks are locked.">
           <div>
             <div className="flex flex-wrap items-center gap-2 text-sm font-medium">
-              Linked for {PEOPLE.find((p) => p.id === ME_ID)!.name}
-              <Badge variant={state.swiggyLinked ? 'success' : 'secondary'}>{state.swiggyLinked ? 'Linked' : 'Not linked'}</Badge>
+              The host places each order in the Swiggy app
+              <Badge variant="secondary">By hand for now</Badge>
             </div>
-            <FieldDescription className="mt-1">Orders are paid on delivery. Once Swiggy approves MCP access, linking moves to Swiggy's own login page.</FieldDescription>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <Button variant="outline" disabled>Re-link with phone and OTP</Button>
-            <FieldDescription>Available once Swiggy approves automatic ordering.</FieldDescription>
+            <FieldDescription className="mt-1">
+              Place order (step 3) lists every restaurant's dishes to add to your Swiggy cart, then you enter the order number. Automatic ordering is waiting for Swiggy's approval; nothing needs linking until then.
+            </FieldDescription>
           </div>
         </Section>
 
@@ -313,12 +342,21 @@ export default function Settings() {
 function LiveMembers() {
   const { live, meId } = useStore();
   const members = useMembers();
-  const setPermissions = useSetPermissions();
+  const roles = useRoles();
+  const setRoles = useSetRoles();
+  const roleId = (name: string) => roles.data?.find((r) => r.name === name)?.id;
   const [change, setChange] = useState<{ user: ApiUser; toHost: boolean } | null>(null);
   const list = [...(members.data ?? [])].sort((a, b) => Number(isHost(b)) - Number(isHost(a)) || a.name.localeCompare(b.name));
   const first = (u: ApiUser) => u.name.split(' ')[0] || u.email;
 
-  if (members.isPending) return <div className="grid gap-2">{[0, 1, 2].map((i) => <span key={i} className="h-14 animate-pulse rounded-xl bg-muted" />)}</div>;
+  if (members.isPending) return <div className="grid gap-2" role="status" aria-busy="true" aria-label="Loading the team">{[0, 1, 2].map((i) => <span key={i} className="h-14 animate-pulse rounded-xl bg-muted" />)}</div>;
+  if (members.isError)
+    return (
+      <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-input p-3 text-[13px] text-muted-foreground">
+        <span>Couldn't load the team. {members.error.message}</span>
+        <Button type="button" size="sm" variant="outline" onClick={() => void members.refetch()}>Try again</Button>
+      </div>
+    );
 
   return (
     <>
@@ -357,12 +395,12 @@ function LiveMembers() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setChange(null)}>Cancel</Button>
             <Button
-              disabled={setPermissions.isPending}
+              disabled={setRoles.isPending || !roleId(HOST_ROLE) || !roleId(MEMBER_ROLE)}
               variant={change?.toHost ? 'default' : 'destructive'}
               onClick={() =>
                 change &&
-                setPermissions.mutate(
-                  { userId: change.user.id, permissions: change.toHost ? ALL_PERMISSIONS : MEMBER_PERMISSIONS },
+                setRoles.mutate(
+                  { userId: change.user.id, roleIds: [roleId(change.toHost ? HOST_ROLE : MEMBER_ROLE) ?? ''] },
                   {
                     onSuccess: () => {
                       toast.success(change.toHost ? `${first(change.user)} is a host now` : `${first(change.user)} is a member again`);
@@ -373,7 +411,7 @@ function LiveMembers() {
                 )
               }
             >
-              {setPermissions.isPending ? 'Saving…' : change?.toHost ? 'Make host' : 'Remove host'}
+              {setRoles.isPending ? 'Saving…' : change?.toHost ? 'Make host' : 'Remove host'}
             </Button>
           </DialogFooter>
         </DialogContent>

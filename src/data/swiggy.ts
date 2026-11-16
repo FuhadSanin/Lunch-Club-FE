@@ -6,7 +6,8 @@
 import { useEffect, useState } from 'react';
 import { useDishesQuery, useMenuQuery, useRestaurantsQuery } from '@/api/queries';
 import type { ApiDish, ApiMenu, ApiRestaurant } from '@/api/types';
-import { remember, restaurantById, type Category, type Dish, type Restaurant } from './menus';
+import type { Category, Dish, Restaurant } from '@/model';
+import { remember, restaurantById } from '@/data/catalog';
 
 type Place = { lat: number; lng: number };
 

@@ -7,7 +7,7 @@ import { playSound, type SoundKind } from '../lib/sound';
 // with a padlock that snaps shut, and its click (picks locked).
 // Each step of a lunch has its own colour, so the moments read differently at a glance.
 export type Tone = 'green' | 'ink' | 'gold' | 'indigo' | 'violet' | 'coral';
-const TONES: Record<Tone, string> = {
+export const TONES: Record<Tone, string> = {
   green: 'bg-[#12a150] text-white dark:bg-[#0e8a43]',
   ink: 'bg-[#141414] text-white dark:bg-[#f2f2f2] dark:text-[#141414]',
   gold: 'bg-[#f5b301] text-[#2a1d00] dark:bg-[#e0a400]',
@@ -17,7 +17,11 @@ const TONES: Record<Tone, string> = {
 };
 // The picture in the middle of a moment, animated like a little sticker: a check by default.
 export type MomentIcon = 'check' | 'megaphone' | 'cart' | 'bag' | 'cloche' | 'cutlery';
-type Moment = { x: number; y: number; title: string; sub?: string; kind?: 'success' | 'lock'; tone?: Tone; icon?: MomentIcon; sound?: SoundKind };
+export type Moment = { x: number; y: number; title: string; sub?: string; kind?: 'success' | 'lock'; tone?: Tone; icon?: MomentIcon; sound?: SoundKind };
+
+// When each sound lands on its moment's animation (seconds after it opens): the lock's snap as the
+// shackle hits home, the till's bell and the other sounds as the picture pops in.
+export const soundDelay = (s: SoundKind) => (s === 'lock' ? 0.575 : s === 'money' ? 0.5 : 0.56);
 
 const Ctx = createContext<(m: Moment) => void>(() => {});
 
@@ -46,9 +50,7 @@ export function CelebrationProvider({ children }: { children: ReactNode }) {
   const celebrate = useCallback((m: Moment) => {
     window.clearTimeout(timer.current);
     setMoment({ ...m, key: Date.now() });
-    // Each sound lands on its animation: the lock's snap as the shackle hits home, the till's bell and
-    // the saved pick's ding as the check starts to draw.
-    if (m.sound) playSound(m.sound, m.sound === 'lock' ? 0.575 : m.sound === 'money' ? 0.5 : 0.56);
+    if (m.sound) playSound(m.sound, soundDelay(m.sound));
     timer.current = window.setTimeout(() => setMoment(null), m.kind === 'lock' ? 2600 : 2300);
   }, []);
 
@@ -81,39 +83,8 @@ export function CelebrationProvider({ children }: { children: ReactNode }) {
             transition={{ duration: 0.65, ease: easeOut }}
           >
             <div className="relative grid place-items-center px-6 text-center">
-              {!reduce && moment.kind !== 'lock' && (
-                <div className="pointer-events-none absolute top-[60px] left-1/2" aria-hidden="true">
-                  {PARTICLES.map((p, i) => (
-                    <motion.span
-                      key={i}
-                      className="absolute block bg-current"
-                      style={{ width: p.size, height: p.size, borderRadius: p.round ? 999 : 2, marginLeft: -p.size / 2, marginTop: -p.size / 2 }}
-                      initial={{ x: 0, y: 0, scale: 0, opacity: 1, rotate: 0 }}
-                      animate={{ x: p.dx, y: p.dy, scale: [0, 1.2, 0.6], opacity: [1, 1, 0], rotate: i * 40 }}
-                      transition={{ duration: 1.2, ease: easeOut, delay: 0.35 + p.delay }}
-                    />
-                  ))}
-                </div>
-              )}
-              {moment.kind === 'lock' ? <Padlock reduce={!!reduce} /> : moment.icon && moment.icon !== 'check' ? <StepIcon icon={moment.icon} reduce={!!reduce} /> : (
-              <motion.div
-                className="grid size-[120px] place-items-center rounded-full bg-current/15"
-                initial={{ scale: 0.4, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ ...spring, delay: 0.2 }}
-              >
-                <svg width="64" height="64" viewBox="0 0 64 64" aria-hidden="true">
-                  <motion.circle
-                    cx="32" cy="32" r="29" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round"
-                    initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.6, ease: easeOut, delay: 0.25 }}
-                  />
-                  <motion.path
-                    d="M19 33 l9 9 l17 -19" fill="none" stroke="currentColor" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round"
-                    initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.45, ease: easeOut, delay: 0.6 }}
-                  />
-                </svg>
-              </motion.div>
-              )}
+              {!reduce && moment.kind !== 'lock' && <Burst />}
+              <MomentArt kind={moment.kind} icon={moment.icon} />
               <motion.p
                 className="mt-8 text-[clamp(36px,6vw,64px)] font-semibold leading-none tracking-[-0.045em]"
                 initial={{ opacity: 0, y: 16 }}
@@ -137,6 +108,51 @@ export function CelebrationProvider({ children }: { children: ReactNode }) {
         )}
       </AnimatePresence>
     </Ctx.Provider>
+  );
+}
+
+// A moment's picture: the padlock for a lock, a step's own picture, or a check that draws itself.
+// The landing page's "How lunch runs" plays the same pictures at the end of each step.
+export function MomentArt({ kind, icon }: Pick<Moment, 'kind' | 'icon'>) {
+  const reduce = !!useReducedMotion();
+  if (kind === 'lock') return <Padlock reduce={reduce} />;
+  if (icon && icon !== 'check') return <StepIcon icon={icon} reduce={reduce} />;
+  return (
+    <motion.div
+      className="grid size-[120px] place-items-center rounded-full bg-current/15"
+      initial={{ scale: 0.4, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={{ ...spring, delay: 0.2 }}
+    >
+      <svg width="64" height="64" viewBox="0 0 64 64" aria-hidden="true">
+        <motion.circle
+          cx="32" cy="32" r="29" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round"
+          initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.6, ease: easeOut, delay: 0.25 }}
+        />
+        <motion.path
+          d="M19 33 l9 9 l17 -19" fill="none" stroke="currentColor" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round"
+          initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.45, ease: easeOut, delay: 0.6 }}
+        />
+      </svg>
+    </motion.div>
+  );
+}
+
+// The burst that goes out behind a moment's picture (not for the lock, which shudders instead).
+export function Burst() {
+  return (
+    <div className="pointer-events-none absolute top-[60px] left-1/2" aria-hidden="true">
+      {PARTICLES.map((p, i) => (
+        <motion.span
+          key={i}
+          className="absolute block bg-current"
+          style={{ width: p.size, height: p.size, borderRadius: p.round ? 999 : 2, marginLeft: -p.size / 2, marginTop: -p.size / 2 }}
+          initial={{ x: 0, y: 0, scale: 0, opacity: 1, rotate: 0 }}
+          animate={{ x: p.dx, y: p.dy, scale: [0, 1.2, 0.6], opacity: [1, 1, 0], rotate: i * 40 }}
+          transition={{ duration: 1.2, ease: easeOut, delay: 0.35 + p.delay }}
+        />
+      ))}
+    </div>
   );
 }
 

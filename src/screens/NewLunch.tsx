@@ -1,10 +1,13 @@
 import { AnimatePresence, motion } from 'motion/react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { PlaceInput } from '@/components/PlaceInput';
 import { toast } from 'sonner';
-import { RADIUS_RANGE, type RestaurantMode } from '@/data/demo';
-import { allDishes, byDistance, restaurantById, restaurantsWithin, useMenus, type Restaurant } from '@/data/menus';
+import type { RestaurantMode } from '@/model';
+import { RADIUS_RANGE } from '@/data/demo';
+import type { Restaurant } from '@/model';
+import { allDishes, byDistance, restaurantById, restaurantsWithin, useMenus } from '@/data/catalog';
 import { useRestaurants } from '@/data/swiggy';
+import { useLunches } from '@/api/queries';
 import { useStore } from '@/store';
 import { FoodPhoto, Icon } from '@/ui';
 import { Button } from '@/components/ui/button';
@@ -45,7 +48,8 @@ const meta = (r: Restaurant) =>
   [r.open === false && 'Closed now', r.cuisines?.join(', '), r.eta].filter(Boolean).join(' · ') || `${allDishes(r).length} dishes from past team orders`;
 
 export default function NewLunch() {
-  const { state, dispatch, now: DEMO_NOW, live } = useStore();
+  const { state, dispatch, now: DEMO_NOW, live, meId } = useStore();
+  const lunches = useLunches(!!live);
   const [sending, setSending] = useState(false);
   const celebrate = useCelebrate();
   // One lunch at a time: while one is running, the form waits until it is closed.
@@ -69,7 +73,7 @@ export default function NewLunch() {
   const cutoffs = cutoffsFrom(DEMO_NOW);
   // 12:30 if it's still ahead today, otherwise about an hour from now.
   const [cutoff, setCutoff] = useState(() => (toMin('12:30') > toMin(DEMO_NOW) + 10 ? '12:30' : cutoffs[Math.min(3, cutoffs.length - 1)]));
-  // A personal party has no saved office addresses: the host searches for the place instead.
+  // A personal party has no saved addresses: the host searches for the place instead.
   const [address, setAddress] = useState(live?.personal ? '' : (state.org.addresses[0] ?? ''));
   const [picked, setPicked] = useState<string[]>(state.session.restaurantIds.slice(0, 3));
   const [started, setStarted] = useState(false);
@@ -88,7 +92,8 @@ export default function NewLunch() {
   useMenus();
 
   // Swiggy's restaurants around the office; the sample ones if the API can't be reached.
-  const around = place ? { lat: place.lat, lng: place.lng } : state.org.office;
+  // A saved address that says where it is works like a chosen place.
+  const around = place ? { lat: place.lat, lng: place.lng } : (state.org.places?.[address] ?? state.org.office);
   // No delivery place yet (a personal party must choose one; a company must have an address): no restaurants,
   // since distances and delivery depend on it. The Restaurants card asks for the place instead.
   const noPlace = live?.personal ? !place : !address.trim();
@@ -108,8 +113,25 @@ export default function NewLunch() {
     ...(searching ? search.restaurants : pool).filter((r) => !picked.includes(r.id)),
   ];
 
-  // The saved addresses, plus one just added that the API hasn't echoed back yet.
-  const addresses = !address || state.org.addresses.includes(address) ? state.org.addresses : [address, ...state.org.addresses];
+  // Where earlier lunches were delivered, newest first, each address once, with where it is: the host's own
+  // for a party, the company's for a company. Those with a known place can be chosen in one tap.
+  const recent = useMemo(() => {
+    const seen = new Set<string>();
+    return (lunches.data ?? [])
+      .filter((l) => live?.personal ? l.host.id === meId && !l.joined : true)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .flatMap((l) => (l.address?.lat != null && l.address.lng != null && !seen.has(l.address.address.toLowerCase()) && seen.add(l.address.address.toLowerCase()) ? [l.address as Required<NonNullable<ApiLunch['address']>>] : []))
+      .slice(0, 5);
+  }, [lunches.data, live?.personal, meId]);
+  const chooseRecent = (a: (typeof recent)[number]) => {
+    setPlace({ place_id: a.id, address: a.address, lat: a.lat as number, lng: a.lng as number });
+    setAddress(a.address);
+    setNewAddr('');
+    setError('');
+  };
+  // The saved addresses, then where earlier lunches went, plus one just added that the API hasn't echoed back yet.
+  const known = [...state.org.addresses, ...recent.map((a) => a.address).filter((a) => !state.org.addresses.includes(a))];
+  const addresses = !address || known.includes(address) ? known : [address, ...known];
   // A place picked from the suggestions: deliver there, and (for a company) keep it with the saved addresses.
   const choosePlace = (p: ApiPlace) => {
     setPlace(p);
@@ -117,7 +139,7 @@ export default function NewLunch() {
     setNewAddr('');
     setError('');
     if (!live?.personal && !state.org.addresses.includes(p.address)) {
-      void dispatch({ type: 'updateOrg', org: { addresses: [...state.org.addresses, p.address] } });
+      void dispatch({ type: 'updateOrg', org: { addresses: [...state.org.addresses, p.address], places: { ...state.org.places, [p.address]: { lat: p.lat, lng: p.lng } } } });
       toast.success('Address saved', { description: `Restaurants are now offered near ${p.address.split(',')[0]}.` });
     } else toast.success(`Finding restaurants near ${p.address.split(',')[0]}`, { description: p.address });
   };
@@ -418,13 +440,41 @@ export default function NewLunch() {
                 {live?.personal ? (
                   <Field>
                     <FieldLabel htmlFor="addr" required>Deliver to</FieldLabel>
-                    <PlaceInput id="addr" value={address} near={around} onChange={(t) => { setAddress(t); setPlace(null); }} onPlace={choosePlace} placeholder="Search your office, building or area…" />
+                    <PlaceInput id="addr" chosenText={place?.address} value={address} near={around} onChange={(t) => { setAddress(t); setPlace(null); }} onPlace={choosePlace} placeholder="Search your office, building or area…" />
+                    {recent.length > 0 && (
+                      <div className="mt-1" role="group" aria-label="Recent addresses">
+                        <p className="mb-1.5 text-[13px] text-muted-foreground">Recent addresses</p>
+                        <ul className="grid gap-1.5">
+                          {recent.map((a) => {
+                            const [where, area] = splitAddress(a.address);
+                            const on = place?.address === a.address;
+                            return (
+                              <li key={a.id}>
+                                <button
+                                  type="button"
+                                  onClick={() => chooseRecent(a)}
+                                  aria-pressed={on}
+                                  className={cn('flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring', on ? 'bg-muted shadow-ring' : 'bg-muted/40 hover:bg-muted/70')}
+                                >
+                                  <Icon name="pin" size={15} className="shrink-0 text-muted-foreground" />
+                                  <span className="min-w-0 flex-1">
+                                    <span className="block truncate text-sm font-medium">{where}</span>
+                                    {area && <span className="block truncate text-[13px] text-muted-foreground">{area}</span>}
+                                  </span>
+                                  {on && <Icon name="check" size={14} className="shrink-0" />}
+                                </button>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                    )}
                     <FieldDescription>{place ? `Restaurants are offered near ${place.address}.` : 'Choose a place from the suggestions; restaurants are offered near it.'}</FieldDescription>
                   </Field>
                 ) : (
                   <Field>
                     <FieldLabel htmlFor="addr" required>Deliver to</FieldLabel>
-                    <Select value={address} onValueChange={(a) => { setAddress(a); setPlace(null); }}>
+                    <Select value={address} onValueChange={(a) => { const r = recent.find((x) => x.address === a); if (r) chooseRecent(r); else { setAddress(a); setPlace(null); } }}>
                       <SelectTrigger id="addr" className="w-full">
                         <SelectValue placeholder="Choose or search an address">
                           {splitAddress(address)[0]}

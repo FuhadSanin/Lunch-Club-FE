@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { personById } from '@/data/demo';
-import { dishById, restaurantById } from '@/data/menus';
+import { personById } from '@/data/people';
+import { dishById, restaurantById } from '@/data/catalog';
 import { useLunch, useStore } from '@/store';
+import { usePending } from '@/lib/use-pending';
 import { Avatar, FoodPhoto, firstName, Icon, rupees, VegMark } from '@/ui';
 import { Button } from '@/components/ui/button';
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -31,8 +32,9 @@ export default function ReviewScreen() {
   const [view, setView] = useState<View>('restaurant');
   const [query, setQuery] = useState('');
   const canReopen = session.status === 'open' && (live ? live.canReopen : state.role === 'host');
+  const { pending, run } = usePending();
   const reopen = (id: string, name: string) =>
-    Promise.resolve(dispatch({ type: 'reopenPick', userId: id })).then(() => toast.success(`${name.split(' ')[0]} can change their order again`), () => undefined);
+    run(`reopen:${id}`, () => dispatch({ type: 'reopenPick', userId: id })).then(() => toast.success(`${name.split(' ')[0]} can change their order again`), () => undefined);
 
   // Each person's own order: their dishes, which restaurant each comes from, their note and what they owe.
   const people = useMemo(
@@ -66,7 +68,7 @@ export default function ReviewScreen() {
   const lockNow = (e: React.MouseEvent<HTMLButtonElement>) => {
     const from = originOf(e);
     const sub = `${lunch.picked.length} ${lunch.picked.length === 1 ? 'person' : 'people'}, ${lunch.dishes} ${lunch.dishes === 1 ? 'dish' : 'dishes'}, ${rupees(lunch.total)}. Nobody can change their pick now.`;
-    Promise.resolve(dispatch({ type: 'lock' })).then(
+    run('lock', () => dispatch({ type: 'lock' })).then(
       () => celebrate({ ...from, kind: 'lock', title: 'Picks locked', sub, sound: 'lock' }),
       () => undefined,
     );
@@ -86,7 +88,7 @@ export default function ReviewScreen() {
         </>
       }
       actions={open && host ? (
-        <Button disabled={!lunch.dishes} onClick={lockNow}><Icon name="lock" size={14} /> Lock picks now</Button>
+        <Button disabled={!lunch.dishes || pending('lock')} onClick={lockNow}><Icon name="lock" size={14} /> {pending('lock') ? 'Locking…' : 'Lock picks now'}</Button>
       ) : <UnlockPicks />}
     >
       {!open && (
@@ -162,7 +164,7 @@ export default function ReviewScreen() {
                         done={!!picks[o.person.id]?.done}
                         doneLabel="Completed"
                         action={canReopen && picks[o.person.id]?.done ? (
-                          <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={() => reopen(o.person.id, o.person.name)}>Reopen</Button>
+                          <Button size="sm" variant="ghost" className="text-muted-foreground" disabled={pending(`reopen:${o.person.id}`)} onClick={() => reopen(o.person.id, o.person.name)}>{pending(`reopen:${o.person.id}`) ? 'Reopening…' : 'Reopen'}</Button>
                         ) : undefined}
                       >
                         {o.lines.map((l) => (
@@ -226,7 +228,7 @@ export default function ReviewScreen() {
             {open && host && (
               <>
                 {lunch.waiting.length > 0 && <p className="text-[13px] text-warn">Locking now leaves out the people still to pick.</p>}
-                <Button className="mt-1 w-full" disabled={!lunch.dishes} onClick={lockNow}><Icon name="lock" size={14} /> Lock picks now</Button>
+                <Button className="mt-1 w-full" disabled={!lunch.dishes || pending('lock')} onClick={lockNow}><Icon name="lock" size={14} /> {pending('lock') ? 'Locking…' : 'Lock picks now'}</Button>
                 <p className="text-center text-[13px] text-muted-foreground">Or they lock by themselves at {session.cutoff}.</p>
               </>
             )}

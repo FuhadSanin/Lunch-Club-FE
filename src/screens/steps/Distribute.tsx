@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Command as CommandPrimitive } from 'cmdk';
-import { dishById } from '@/data/menus';
+import { dishById } from '@/data/catalog';
 import { useLunch, useStore } from '@/store';
 import { Avatar, FoodPhoto, Icon, rupees, VegMark } from '@/ui';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -11,7 +11,8 @@ import { NextStep, StepPage } from '@/components/steps';
 import { useCelebrate } from '@/components/celebrate';
 import { ReviewProgress } from '../ReviewCard';
 import { cn, spring } from '@/lib/cn';
-import type { Person } from '@/data/demo';
+import { usePending } from '@/lib/use-pending';
+import type { Person } from '@/model';
 
 // Step 5 (distribute): hand out the food. Each person's card shows exactly what they ordered, so the
 // right bag goes to the right person; tick them as they collect it. Search suggests names as you type.
@@ -20,6 +21,7 @@ export default function Distribute() {
   const lunch = useLunch();
   const { session, picks } = state;
   const celebrate = useCelebrate();
+  const { pending, run } = usePending();
   const [query, setQuery] = useState('');
   const [suggest, setSuggest] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
@@ -53,10 +55,12 @@ export default function Distribute() {
   };
 
   const toggle = (p: Person, done: boolean) => {
-    dispatch({ type: 'handOut', userId: p.id, done });
-    // The last person served: the glass clink and the violet moment.
-    if (done && count + 1 === lunch.picked.length)
-      celebrate({ x: innerWidth / 2, y: innerHeight / 2, title: "Everyone's served", sub: `All ${lunch.picked.length} people have their lunch.`, tone: 'violet', icon: 'cloche', sound: 'served' });
+    const last = done && count + 1 === lunch.picked.length;
+    // The glass clink and the violet moment come when the last person is saved as served, not on the click.
+    run(p.id, () => dispatch({ type: 'handOut', userId: p.id, done })).then(
+      () => last && celebrate({ x: innerWidth / 2, y: innerHeight / 2, title: "Everyone's served", sub: `All ${lunch.picked.length} people have their lunch.`, tone: 'violet', icon: 'cloche', sound: 'served' }),
+      () => undefined, // the reason is already on screen as a toast
+    );
   };
 
   return (
@@ -144,8 +148,8 @@ export default function Distribute() {
                       <span className={cn('block truncate text-sm font-semibold', done && 'text-ok')}>{p.name}</span>
                       <span className="block text-[13px] text-muted-foreground num">Owes {rupees(o.total)}</span>
                     </span>
-                    <span className={cn('text-xs font-medium', done ? 'text-ok' : 'text-muted-foreground')}>{done ? 'Handed over' : 'Hand over'}</span>
-                    <Checkbox id={id} className="size-5" checked={done} onCheckedChange={(v) => toggle(p, v === true)} aria-label={`${p.name} has their food`} />
+                    <span className={cn('text-xs font-medium', done ? 'text-ok' : 'text-muted-foreground')}>{pending(p.id) ? 'Saving…' : done ? 'Handed over' : 'Hand over'}</span>
+                    <Checkbox id={id} className="size-5" checked={done} disabled={pending(p.id)} onCheckedChange={(v) => toggle(p, v === true)} aria-label={`${p.name} has their food`} />
                   </label>
                   <ul className="mt-3 grid gap-2 border-t border-dashed pt-3">
                     {o.lines.map((l) => (

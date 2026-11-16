@@ -1,4 +1,4 @@
-// The live board: the server copies each lunch to Firestore (boards/<lunch id>) after every change
+// The live board: after every change the server touches a small Firestore document (boards/<lunch id>)
 // (lunch-backend's apps/lunches/board.py). Listening to that copy tells this browser the moment
 // someone joins, picks, finishes or the order moves on, and the board is fetched again from the API
 // at once. The API stays the source of truth; the copy is only the signal.
@@ -12,7 +12,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { keys, liveBoards as listening } from '@/api/queries';
 import { firebaseApp, refreshIdToken, useGoogleUser } from '@/lib/firebase';
 
-export const LIVE_BOARD = import.meta.env.VITE_LIVE_BOARD === 'true';
+export const LIVE_BOARD = String(import.meta.env.VITE_LIVE_BOARD).toLowerCase() === 'true';
 
 export function useLiveBoard(lunchId: string | undefined) {
   const qc = useQueryClient();

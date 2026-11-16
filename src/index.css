@@ -210,3 +210,32 @@
 /* Theme switch: the new theme opens as a circle from the toggle (see components/theme.tsx). */
 ::view-transition-old(root),
 ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+
+/* The landing page's background. */
+@layer components {
+  /* The squares behind the whole landing page: a fine grid of 56px squares, and a few squares that light
+     up and fade, one after another, in the top of the page. Colourless: it only draws in the theme's own grey. */
+  .page-grid {
+    --cell: 56px;
+    background-image:
+      linear-gradient(to right, rgb(128 128 128 / 0.13) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(128 128 128 / 0.13) 1px, transparent 1px);
+    background-size: var(--cell) var(--cell);
+  }
+  .lit-square {
+    position: absolute;
+    width: 56px;
+    height: 56px;
+    background: rgb(128 128 128 / 0.14);
+    box-shadow: inset 0 0 0 1px rgb(128 128 128 / 0.3);
+    opacity: 0;
+    animation: square-lit 7s ease-in-out infinite;
+  }
+  @keyframes square-lit {
+    0%, 100% { opacity: 0; }
+    40%, 60% { opacity: 1; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .lit-square { animation: none; opacity: 0.6; }
+  }
+}

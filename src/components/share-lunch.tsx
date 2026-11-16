@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Icon } from '@/ui';
+import { JoiningSwitch } from '@/components/joining-switch';
 
 // The link that opens Pick my lunch for one lunch (#/lunch/<id>); in the demo, plain #/pick.
 export const lunchLink = (lunchId?: string | null) =>
@@ -81,6 +82,7 @@ export function ShareLunch({ link, cutoff, name, label = 'Share', variant = 'out
           <Button variant="outline" className="h-11" onClick={() => void slack()}><Icon name="hash" />Slack</Button>
           {canShare && <Button variant="outline" className="h-11" onClick={more}><Icon name="share" />More</Button>}
         </div>
+        <JoiningSwitch />
       </DialogContent>
     </Dialog>
   );

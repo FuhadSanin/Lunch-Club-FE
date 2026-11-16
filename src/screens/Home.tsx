@@ -2,8 +2,9 @@ import { NotificationsPrompt } from '@/components/Notifications';
 import { AnimatePresence, motion } from 'motion/react';
 import { toast } from 'sonner';
 import { useMemo, useState } from 'react';
-import { personById, type Person } from '@/data/demo';
-import { dishById } from '@/data/menus';
+import type { Person } from '@/model';
+import { personById } from '@/data/people';
+import { dishById } from '@/data/catalog';
 import { useLunch, useStore } from '@/store';
 import { Avatar, FoodPhoto, Icon, LiveDot, rupees } from '@/ui';
 import { Button } from '@/components/ui/button';
@@ -363,19 +364,23 @@ function NowBanner() {
 function HostAction({ person, status, done }: { person: Person; status: PickStatus; done: boolean }) {
   const { dispatch } = useStore();
   const name = person.name.split(' ')[0];
+  // One at a time: the button is disabled until the API has answered.
+  const [skipping, setSkipping] = useState(false);
+  const [reopening, setReopening] = useState(false);
   if (done)
     return (
       <Button
         size="sm"
         variant="outline"
-        onClick={() =>
-          Promise.resolve(dispatch({ type: 'reopenPick', userId: person.id })).then(
-            () => toast.success(`${name} can change their ${status === 'skipped' ? 'day' : 'order'} again`),
-            () => undefined,
-          )
-        }
+        disabled={reopening}
+        onClick={() => {
+          setReopening(true);
+          void Promise.resolve(dispatch({ type: 'reopenPick', userId: person.id }))
+            .then(() => toast.success(`${name} can change their ${status === 'skipped' ? 'day' : 'order'} again`), () => undefined)
+            .finally(() => setReopening(false));
+        }}
       >
-        Reopen
+        {reopening ? 'Reopening…' : 'Reopen'}
       </Button>
     );
   if (status !== 'waiting') return null;
@@ -384,17 +389,19 @@ function HostAction({ person, status, done }: { person: Person; status: PickStat
       size="sm"
       variant="outline"
       className="text-muted-foreground"
-      onClick={() =>
-        Promise.resolve(dispatch({ type: 'skip', userId: person.id })).then(
+      disabled={skipping}
+      onClick={() => {
+        setSkipping(true);
+        void Promise.resolve(dispatch({ type: 'skip', userId: person.id })).then(
           () =>
             toast(`${name} is skipping today`, {
               action: { label: 'Undo', onClick: () => void dispatch({ type: 'reopenPick', userId: person.id }) },
             }),
           () => undefined,
-        )
-      }
+        ).finally(() => setSkipping(false));
+      }}
     >
-      Mark skipped
+      {skipping ? 'Saving…' : 'Mark skipped'}
     </Button>
   );
 }

@@ -92,14 +92,21 @@ export function StepPage({ id, title, sub, actions, children }: { id: StepId; ti
   // Finishing this step moves on to the next one by itself, under the step's celebration, so the
   // host never has to look for where to go next.
   // The timer is only cancelled when the page closes, not by the re-renders the celebration causes.
+  // It never moves while another change is on its way to the API, or once the step has stopped being done:
+  // the page then stays, and the "Next" bar opens when the change has stuck.
   const was = useRef(states[id]);
   const advance = useRef(0);
+  const saving = !!useStore().live?.busy;
+  const still = useRef({ saving, done: states[id] === 'done' });
+  useEffect(() => {
+    still.current = { saving, done: states[id] === 'done' };
+  }, [saving, states, id]);
   useEffect(() => {
     const before = was.current;
     was.current = states[id];
     if (before === 'now' && states[id] === 'done' && n < STEPS.length - 1) {
       advance.current = window.setTimeout(() => {
-        window.location.hash = STEPS[n + 1].route;
+        if (!still.current.saving && still.current.done) window.location.hash = STEPS[n + 1].route;
       }, 900);
     }
   }, [states, id, n]);
@@ -145,15 +152,21 @@ export function StepPage({ id, title, sub, actions, children }: { id: StepId; ti
 export function NextStep({ to, children }: { to: StepId; children?: ReactNode }) {
   const n = STEPS.findIndex((s) => s.id === to);
   const step = STEPS[n];
+  // While a change is still on its way to the API, the next step waits: it opens once the change has stuck.
+  const saving = !!useStore().live?.busy;
   return (
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={spring}>
       <Card className="mt-4 border-0 bg-ok-soft shadow-none">
         <CardContent className="flex flex-wrap items-center gap-3">
           <span className="grid size-8 place-items-center rounded-full bg-ok text-white" aria-hidden="true"><Icon name="check" size={15} /></span>
           <p className="min-w-0 flex-1 text-sm">{children ?? 'This step is done.'}</p>
-          <Button asChild className="max-sm:w-full">
-            <a href={`#${step.route}`}>Next: {step.label} <Icon name="arrow" size={14} /></a>
-          </Button>
+          {saving ? (
+            <Button disabled className="max-sm:w-full">Saving…</Button>
+          ) : (
+            <Button asChild className="max-sm:w-full">
+              <a href={`#${step.route}`}>Next: {step.label} <Icon name="arrow" size={14} /></a>
+            </Button>
+          )}
         </CardContent>
       </Card>
     </motion.div>

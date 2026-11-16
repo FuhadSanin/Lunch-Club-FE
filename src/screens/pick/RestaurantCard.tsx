@@ -1,5 +1,5 @@
 import { motion } from 'motion/react';
-import type { Restaurant } from '@/data/menus';
+import type { Restaurant } from '@/model';
 import { Badge } from '@/components/ui/badge';
 import { FoodPhoto, Rating } from '@/ui';
 import { spring } from '@/lib/cn';

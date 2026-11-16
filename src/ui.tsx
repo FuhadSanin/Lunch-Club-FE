@@ -1,5 +1,6 @@
 import { useEffect, useState, type CSSProperties } from 'react';
-import { personById, type Person } from './data/demo';
+import type { Person } from '@/model';
+import { personById } from '@/data/people';
 import { cn } from './lib/cn';
 import { Avatar as UiAvatar, AvatarFallback } from './components/ui/avatar';
 
@@ -116,6 +117,9 @@ const paths: Record<string, string> = {
   check: 'M4 10.5 8 14.5 16 6',
   sun: 'M10 6.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7zM10 2v1.5M10 16.5V18M2 10h1.5M16.5 10H18M4.3 4.3l1.1 1.1M14.6 14.6l1.1 1.1M4.3 15.7l1.1-1.1M14.6 5.4l1.1-1.1',
   bell: 'M10 3a4.5 4.5 0 0 0-4.5 4.5c0 4-1.5 5-1.5 5.5h12c0-.5-1.5-1.5-1.5-5.5A4.5 4.5 0 0 0 10 3zM8.2 15.5a1.9 1.9 0 0 0 3.6 0',
+  flame: 'M10 2.5c.5 3-3.5 4.5-3.5 8.2a3.5 3.5 0 0 0 7 0c0-1.2-.5-2-1-2.7-.2 1-.8 1.5-1.4 1.7.6-2.5-.1-5.2-1.1-7.2z',
+  doc: 'M5 2.5h7l3.5 3.5v11.5H5zM12 2.5V6h3.5M7.5 10h5M7.5 13h5',
+  plug: 'M7 3v4M13 3v4M5 7h10v3a5 5 0 0 1-10 0zM10 15v2.5',
   moon: 'M16 12.5A6.5 6.5 0 0 1 7.5 4a6.5 6.5 0 1 0 8.5 8.5z',
   lock: 'M6 9V6.5a4 4 0 0 1 8 0V9M5 9h10v8H5z',
   clock: 'M10 3a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM10 6v4l3 2',

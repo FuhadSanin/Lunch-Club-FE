@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useLunch, useStore } from '@/store';
+import { usePending } from '@/lib/use-pending';
 import { Icon, rupees } from '@/ui';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -14,6 +15,7 @@ export default function Finish() {
   const { state, dispatch } = useStore();
   const lunch = useLunch();
   const celebrate = useCelebrate();
+  const { pending, run } = usePending();
   const [confirming, setConfirming] = useState(false);
   const { session } = state;
 
@@ -21,7 +23,7 @@ export default function Finish() {
     const from = originOf(e);
     setConfirming(false);
     const line = CHEERS[Math.floor(Math.random() * CHEERS.length)];
-    Promise.resolve(dispatch({ type: 'finishLunch' })).then(() => {
+    run('finish', () => dispatch({ type: 'finishLunch' })).then(() => {
       celebrate({ ...from, title: line, sub: `${lunch.picked.length} people fed from ${lunch.cart.length} restaurants. The next lunch can start whenever you're hungry again.`, tone: 'coral', icon: 'cutlery', sound: 'cheer' });
       window.location.hash = '/';
     }, () => undefined);
@@ -53,7 +55,7 @@ export default function Finish() {
               </div>
             ))}
           </dl>
-          <Button size="lg" onClick={() => setConfirming(true)}>Complete and enjoy your meal</Button>
+          <Button size="lg" disabled={pending('finish')} onClick={() => setConfirming(true)}>{pending('finish') ? 'Completing…' : 'Complete and enjoy your meal'}</Button>
         </CardContent>
       </Card>
 

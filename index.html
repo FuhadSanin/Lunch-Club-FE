@@ -3,26 +3,47 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="Lunch Board: a team picks lunch from several restaurants and the host places one Swiggy order." />
+    <meta name="description" content="Lunch Board makes group lunch ordering simple: everyone on the team picks their own dish from any Swiggy restaurant, and the host places one order. Names on every bag, one cart, no spreadsheets." />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <link rel="canonical" href="https://lunchclubfe.vercel.app/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Lunch Board" />
+    <meta property="og:title" content="Lunch Board: group lunch ordering, one Swiggy order for the whole team" />
+    <meta property="og:description" content="Everyone picks their own dish from any restaurant. The host places one order. Names on every bag, no spreadsheets." />
+    <meta property="og:url" content="https://lunchclubfe.vercel.app/" />
+    <meta property="og:image" content="https://lunchclubfe.vercel.app/promo/story-poster.jpg" />
+    <meta property="og:image:alt" content="Lunch Board: everyone picks. One order." />
+    <meta property="og:locale" content="en_IN" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Lunch Board: group lunch ordering for teams" />
+    <meta name="twitter:description" content="Everyone picks their own dish from any restaurant. The host places one order." />
+    <meta name="twitter:image" content="https://lunchclubfe.vercel.app/promo/story-poster.jpg" />
     <meta name="theme-color" content="#ffffff" />
     <meta name="color-scheme" content="light dark" />
-    <script>
-      // Set the theme before first paint so a dark page never flashes white.
-      try {
-        var t = localStorage.getItem('lunchboard-theme');
-        if (t === 'dark' || (!t && matchMedia('(prefers-color-scheme: dark)').matches)) {
-          document.documentElement.classList.add('dark');
-          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0a0a0a');
-        }
-      } catch (e) {}
-    </script>
-    <title>Lunch Board</title>
+    <script src="/theme-init.js"></script>
+    <title>Lunch Board: group lunch ordering for teams | One Swiggy order</title>
     <link rel="preload" href="/fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <script type="application/ld+json">
+      {{
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "Lunch Board",
+        "url": "{SITE}/",
+        "applicationCategory": "BusinessApplication",
+        "operatingSystem": "Any (web browser)",
+        "description": "Group lunch ordering for teams: everyone picks their own dish from any Swiggy restaurant and the host places one order.",
+        "inLanguage": "en-IN",
+        "offers": {{ "@type": "Offer", "price": "0", "priceCurrency": "INR" }}
+      }}
+    </script>
   </head>
   <body>
     <div id="root"></div>
-    <noscript>Lunch Board needs JavaScript to run.</noscript>
+    <noscript>
+      <h1>Lunch Board: group lunch ordering for teams</h1>
+      <p>Everyone on your team picks their own dish from any Swiggy restaurant, and the host places one order for all of it. Lunch Board puts every pick into one cart, writes each person's name on their food, and shows who still has to pick. It needs JavaScript to run.</p>
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

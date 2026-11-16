@@ -2,7 +2,7 @@ import { motion, useMotionValueEvent, useScroll } from 'motion/react';
 import { useState, type ReactNode } from 'react';
 import { useSignIn } from '../auth';
 import { useLunch, useStore } from '../store';
-import { dishById } from '../data/menus';
+import { dishById } from '@/data/catalog';
 import { Avatar, FoodPhoto, firstName, GoogleG, Mark, rupees } from '../ui';
 import { Button } from '../components/ui/button';
 import { Switch } from '../components/ui/switch';
@@ -10,34 +10,49 @@ import { Label } from '../components/ui/label';
 import { ThemeToggle } from '../components/theme';
 import { cn, easeOut } from '../lib/cn';
 import LiveDemo from './LiveDemo';
-import CartBand from './CartBand';
 import HowItRuns from './HowItRuns';
+import Story from './Story';
+import Faq from './Faq';
 import Tastes from './Tastes';
 import { Reveal } from './motion';
 
 const LINKS = [
-  { href: '#pick', label: 'Picking' },
-  { href: '#cart', label: 'The cart' },
   { href: '#how', label: 'How it works' },
-  { href: '#hosts', label: 'For hosts' },
+  { href: '#story', label: 'The story' },
+  { href: '#hosts', label: 'The board' },
 ];
+
+// Behind everything, from top to bottom: a grid of squares, and a few that light up and fade. The lit ones
+// sit on grid cells (multiples of the 56px cell) near the top, where the hero is.
+const LIT: [col: number, row: number, delay: number][] = [[3, 3, 0], [9, 2, -1.4], [14, 5, -2.8], [21, 3, -4.2], [6, 9, -5.6], [18, 10, -0.7], [25, 7, -2.1], [12, 13, -3.5]];
+
+function PageGrid() {
+  return (
+    <div aria-hidden="true" className="page-grid pointer-events-none absolute inset-0 -z-10">
+      {LIT.map(([col, row, delay]) => (
+        <span key={`${col}-${row}`} className="lit-square" style={{ left: col * 56, top: row * 56, animationDelay: `${delay}s` }} />
+      ))}
+    </div>
+  );
+}
 
 export default function Landing() {
   const signIn = useSignIn();
   const start = () => void signIn();
 
   return (
-    <div className="min-h-dvh overflow-x-clip bg-canvas text-base leading-[1.6]">
+    <div className="relative isolate min-h-dvh overflow-x-clip bg-canvas text-base leading-[1.6]">
+      <PageGrid />
       <a href="#hero-title" className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[60] focus:rounded-lg focus:bg-ink focus:px-4 focus:py-2.5 focus:text-on-ink">
         Skip to content
       </a>
       <Nav onStart={start} />
       <main>
         <Tastes onStart={start} />
-        <LiveDemo />
-        <CartBand />
         <HowItRuns />
+        <Story />
         <ForHosts />
+        <Faq onStart={start} />
         <Closing onStart={start} />
       </main>
       <Footer onStart={start} />
@@ -86,10 +101,10 @@ function Nav({ onStart }: { onStart: () => void }) {
 
 function Tile({ title, body, children, className, delay = 0 }: { title: string; body: string; children: ReactNode; className?: string; delay?: number }) {
   return (
-    <Reveal delay={delay} className={cn('flex min-w-0 flex-col overflow-hidden rounded-3xl bg-soft p-7 sm:p-9', className)}>
+    <Reveal delay={delay} className={cn('flex min-w-0 flex-col overflow-hidden rounded-3xl bg-soft p-8 sm:p-10', className)}>
       <h3 className="text-2xl font-semibold leading-7 tracking-[-0.03em]">{title}</h3>
       <p className="mt-2 max-w-md text-body">{body}</p>
-      <motion.div className="mt-8 flex-1" whileHover={{ scale: 1.015 }} transition={{ type: 'spring', stiffness: 300, damping: 24 }}>
+      <motion.div className="mt-10 flex-1" whileHover={{ scale: 1.015 }} transition={{ type: 'spring', stiffness: 300, damping: 24 }}>
         {children}
       </motion.div>
     </Reveal>
@@ -107,21 +122,24 @@ function ForHosts() {
   }));
 
   return (
-    <section id="hosts" aria-labelledby="hosts-title" className="mx-auto max-w-[1200px] px-5 pt-28 sm:px-8 md:pt-12">
+    <section id="hosts" aria-labelledby="hosts-title" className="mx-auto max-w-[1200px] px-5 pt-40 sm:px-8 md:pt-56">
       <div className="grid gap-x-8 gap-y-6 lg:grid-cols-12 lg:items-end">
         <Reveal className="lg:col-span-7">
-          <h2 id="hosts-title" className="text-[clamp(36px,5.2vw,64px)] font-semibold leading-[1] tracking-[-0.045em]">
+          <h2 id="hosts-title" className="text-[clamp(32px,4.4vw,52px)] font-semibold leading-[1.08] tracking-[-0.04em]">
             Made for the person who orders.
           </h2>
         </Reveal>
         <Reveal delay={0.08} className="lg:col-span-5">
           <p className="text-lg leading-7 text-body">
-            No spreadsheet, no screenshots of menus in the group chat, no adding up who owes what at 1 pm.
+            Everyone picks on one board, and the cart adds itself up. No spreadsheet, no screenshots of menus in the
+            group chat, no adding up who owes what at 1 pm.
           </p>
         </Reveal>
       </div>
 
-      <div className="mt-12 grid gap-4 md:grid-cols-6">
+      {/* One section: the board to try, then what it does for the host, in the same grid. */}
+      <LiveDemo className="mt-16" />
+      <div className="mt-5 grid gap-5 md:mt-6 md:grid-cols-6 md:gap-6">
         <Tile className="md:col-span-4" title="Names on every bag." body="Each person's name goes in the restaurant's note, so lunch comes labelled and nobody opens the wrong box.">
           {firstGroup && (
             <div data-ui className="rounded-2xl bg-canvas p-5 shadow-card">
@@ -187,11 +205,11 @@ function ForHosts() {
 function Closing({ onStart }: { onStart: () => void }) {
   const { state } = useStore();
   return (
-    <section aria-labelledby="close-title" className="mx-auto max-w-[1200px] px-5 pt-28 pb-28 sm:px-8 sm:pt-48">
+    <section aria-labelledby="close-title" className="mx-auto max-w-[1200px] px-5 pt-32 pb-32 sm:px-8 sm:pt-56 sm:pb-40">
       <div className="grid grid-cols-[minmax(0,1fr)] items-center gap-10 md:grid-cols-12 md:gap-8">
         <Reveal className="md:col-span-5">
           <motion.img
-            src="/illustrations/tiffin.png"
+            src="/illustrations/tiffin.webp"
             alt="A four-tier tiffin carrier with a turned-wood handle and an order ticket tied to it."
             width={840}
             height={1280}
@@ -203,7 +221,7 @@ function Closing({ onStart }: { onStart: () => void }) {
           />
         </Reveal>
         <Reveal delay={0.1} className="md:col-span-7">
-          <h2 id="close-title" className="text-[clamp(36px,5.2vw,64px)] font-semibold leading-[1] tracking-[-0.045em]">
+          <h2 id="close-title" className="text-[clamp(32px,4.4vw,52px)] font-semibold leading-[1.08] tracking-[-0.04em]">
             Picks close at {state.session.cutoff}.
           </h2>
           <p className="mt-6 max-w-lg text-lg leading-7 text-body">

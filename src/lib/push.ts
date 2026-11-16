@@ -9,7 +9,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { api } from '@/api/client';
 import { queryClient } from '@/api/queries';
-import { firebaseApp } from './firebase';
+import { firebaseApp, firebaseConfig } from './firebase';
 
 // The Web Push key pair from the Firebase console (Project settings → Cloud Messaging → Web Push
 // certificates). Without it notifications stay hidden: there is nothing to turn on.
@@ -53,7 +53,8 @@ async function listenInForeground() {
 // Gets this device's token and hands it to the API. Safe to repeat: it also renews a token Firebase
 // has changed and subscribes the device to a party joined since.
 async function register(): Promise<string> {
-  const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+  // The worker is a plain file, so it can't read the environment: it gets the project's config in its address.
+  const registration = await navigator.serviceWorker.register(`/firebase-messaging-sw.js?${new URLSearchParams(firebaseConfig)}`);
   const token = await getToken(getMessaging(firebaseApp), { vapidKey: VAPID_KEY, serviceWorkerRegistration: registration });
   if (!token) throw new Error('This browser did not give a notification token.');
   await api<void>('me/push-token', { method: 'POST', body: { token } });

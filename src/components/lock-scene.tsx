@@ -1,5 +1,5 @@
 import { motion, useReducedMotion } from 'motion/react';
-import type { Person } from '@/data/demo';
+import type { Person } from '@/model';
 import { Avatar, rupees } from '@/ui';
 import { cn, spring } from '@/lib/cn';
 

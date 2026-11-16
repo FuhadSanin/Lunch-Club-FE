@@ -1,10 +1,8 @@
 import { createContext, useContext, useEffect, useMemo, useReducer, type ReactNode } from 'react';
-import {
-  DEMO_NOW, DEMO_ORG, DEMO_PICKS, DEMO_SESSION, ME_ID, PEOPLE,
-  type BotStep, type Org, type Person, type Pick, type PickLine, type Role, type Session,
-} from './data/demo';
+import type { BotStep, Org, Person, Pick, PickLine, Role, Session } from '@/model';
+import { DEMO_NOW, DEMO_ORG, DEMO_PICKS, DEMO_SESSION, ME_ID, PEOPLE } from '@/data/demo';
 import type { ApiBoard, ApiOrder } from './api/types';
-import { dishById, restaurantById, useMenus } from './data/menus';
+import { dishById, restaurantById, useMenus } from '@/data/catalog';
 
 export type State = {
   signedIn: boolean;
@@ -207,6 +205,8 @@ export type CartGroup = { restaurantId: string; name: string; lines: CartLine[];
 export function useLunch() {
   const { state, people } = useStore();
   const menus = useMenus(); // dishes from live menus can arrive after the picks
+  // `menus` isn't read inside, but when it changes the dishes that summarise looks up have.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   return useMemo(() => summarise(state.session, state.picks, people), [state.session, state.picks, people, menus]);
 }
 

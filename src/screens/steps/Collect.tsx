@@ -1,5 +1,5 @@
 import { motion } from 'motion/react';
-import { restaurantById } from '@/data/menus';
+import { restaurantById } from '@/data/catalog';
 import { useLunch, useStore } from '@/store';
 import { FoodPhoto, firstName, Icon, rupees, VegMark } from '@/ui';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,7 @@ import { NextStep, StepPage } from '@/components/steps';
 import { originOf, useCelebrate } from '@/components/celebrate';
 import { ReviewProgress } from '../ReviewCard';
 import { cn, spring } from '@/lib/cn';
+import { usePending } from '@/lib/use-pending';
 
 // Step 4 (collect): the food comes in one restaurant at a time. Each restaurant lists what we ordered
 // from it, to check the bags against; mark it as it arrives, and once they all have, the lunch has arrived.
@@ -16,6 +17,7 @@ export default function Collect() {
   const lunch = useLunch();
   const { session } = state;
   const celebrate = useCelebrate();
+  const { pending, run } = usePending();
   const arrived = (id: string) => !!session.arrived?.[id];
   const count = lunch.cart.filter((g) => arrived(g.restaurantId)).length;
   const all = lunch.cart.length > 0 && count === lunch.cart.length;
@@ -30,6 +32,7 @@ export default function Collect() {
           <ul className="grid gap-2">
             {list.map((g) => {
               const done = arrived(g.restaurantId);
+              const saving = pending(g.restaurantId);
               const people = new Set(g.lines.flatMap((l) => l.people)).size;
               return (
                 <motion.li
@@ -46,18 +49,24 @@ export default function Collect() {
                   {done ? (
                     <span className="flex items-center gap-2">
                       <span className="flex items-center gap-1.5 text-[13px] font-medium text-ok"><Icon name="check" size={14} /> Arrived</span>
-                      <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={() => dispatch({ type: 'arrive', restaurantId: g.restaurantId, done: false })}>Undo</Button>
+                      <Button size="sm" variant="ghost" className="text-muted-foreground" disabled={saving} onClick={() => void run(g.restaurantId, () => dispatch({ type: 'arrive', restaurantId: g.restaurantId, done: false })).catch(() => undefined)}>
+                        {saving ? 'Saving…' : 'Undo'}
+                      </Button>
                     </span>
                   ) : (
                     <Button
+                      disabled={saving}
                       onClick={(e) => {
-                        dispatch({ type: 'arrive', restaurantId: g.restaurantId, done: true });
-                        // The last restaurant in: the doorbell and the green moment.
-                        if (count + 1 === lunch.cart.length)
-                          celebrate({ ...originOf(e), title: "Food's here!", sub: `All ${lunch.cart.length} restaurants have arrived. Time to hand it out.`, tone: 'indigo', icon: 'bag', sound: 'doorbell' });
+                        const from = originOf(e);
+                        const last = count + 1 === lunch.cart.length;
+                        // The doorbell and the green moment come when the last restaurant is saved as arrived, not on the click.
+                        run(g.restaurantId, () => dispatch({ type: 'arrive', restaurantId: g.restaurantId, done: true })).then(
+                          () => last && celebrate({ ...from, title: "Food's here!", sub: `All ${lunch.cart.length} restaurants have arrived. Time to hand it out.`, tone: 'indigo', icon: 'bag', sound: 'doorbell' }),
+                          () => undefined, // the reason is already on screen as a toast
+                        );
                       }}
                     >
-                      Mark as arrived
+                      {saving ? 'Saving…' : 'Mark as arrived'}
                     </Button>
                   )}
                   {/* What we ordered from here, to check the bags against. */}

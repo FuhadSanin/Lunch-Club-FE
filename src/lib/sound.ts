@@ -39,6 +39,12 @@ export const setSoundOn = (on: boolean) => {
 // ---------- the engine ----------
 
 let ctx: AudioContext | null = null;
+
+// Whether the browser lets this page make sound yet: only once the person has clicked, tapped or typed
+// on it (scrolling doesn't count). Sounds asked for before that would wait in the suspended engine and
+// all play at once on the first click, so anything that plays without a click checks this first.
+export const audioAllowed = () => navigator.userActivation?.hasBeenActive ?? ctx?.state === 'running';
+
 const audio = () => {
   if (!ctx) {
     const Ctor = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;

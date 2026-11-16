@@ -1,22 +1,26 @@
+import { PlatformStrip } from './Platforms';
 import { motion, useInView, useReducedMotion } from 'motion/react';
 import { useMemo, useRef, useState } from 'react';
-import { allDishes, dishById } from '../data/menus';
-import { PEOPLE } from '../data/demo';
-import { offeredRestaurants, useLunch, useStore } from '../store';
-import { GoogleG, Icon, rupees } from '../ui';
+import { allDishes, dishById } from '@/data/catalog';
+import { PEOPLE } from '@/data/demo';
+import { offeredRestaurants, useStore } from '../store';
+import { GoogleG, Icon } from '../ui';
 import { Button } from '../components/ui/button';
 import { cn, easeOut, spring } from '../lib/cn';
 import { WordsIn } from './motion';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/tooltip';
 
-// The lunch line: eight people at the office counter (public/illustrations/lunch-line.png), each
-// thinking of a different dish, and the one tiffin waiting at the front. The thought bubbles are
-// separate images so they can pop in and follow today's picks. Drawn by scripts/art/lunch-line.mjs;
-// these numbers match the scene there.
-const SCENE = { w: 1600, h: 860 };
+// The office: eight colleagues at one long desk (public/illustrations/desks.png, served as WebP), each at a laptop and
+// dreaming of a different dish, with the team's tiffin waiting at the end. The thought bubbles are
+// separate images so they can pop in and follow today's picks. Drawn by scripts/art/desks.mjs (the
+// bubbles by scripts/art/lunch-line.mjs); these numbers match the scene there.
+const SCENE = { w: 1600, h: 740 };
 const XS = [100, 280, 460, 640, 820, 1000, 1180, 1360];
 const TIERS = [1, 0, 1, 0, 1, 0, 1, 0];
 const BUBBLE = { w: 200, h: 150 };
+// The hero shows the last four people at the desk and the tiffin: the scene from CROP.x across CROP.w.
+const FIRST = 4;
+const CROP = { x: 772, w: 828 };
 
 type Kind = 'thali' | 'biryani' | 'burrito' | 'bowl' | 'salad' | 'wrap' | 'burger' | 'ramen' | 'drink' | 'chicken' | 'dosa' | 'icecream' | 'fries' | 'pizza';
 
@@ -43,7 +47,6 @@ type Thought = { kind: Kind; dish: string; restaurant: string };
 // The landing page opens on the lunch line: the headline, the way in, and the drawing.
 export default function Tastes({ onStart }: { onStart: () => void }) {
   const { state } = useStore();
-  const lunch = useLunch();
   const figure = useRef<HTMLElement>(null);
   const shown = useInView(figure, { once: true, amount: 0.3 });
   const reduce = useReducedMotion();
@@ -67,53 +70,61 @@ export default function Tastes({ onStart }: { onStart: () => void }) {
   const pct = (v: number, of: number) => `${(v / of) * 100}%`;
 
   return (
-    <section aria-labelledby="hero-title" className="mx-auto max-w-[1200px] px-5 pt-28 sm:px-8 sm:pt-36">
-      <div className="grid gap-x-8 gap-y-6 lg:grid-cols-12 lg:items-end">
-        <h1 id="hero-title" className="text-[clamp(40px,6.4vw,84px)] font-semibold leading-[0.96] tracking-[-0.05em] lg:col-span-7">
-          <WordsIn lines={['Everyone has a', 'different craving.']} />
+    <section
+      aria-labelledby="hero-title"
+      className="relative mx-auto max-w-[1200px] px-5 pt-28 pb-10 sm:px-8 sm:pt-32 md:grid md:min-h-dvh md:grid-cols-12 md:items-center md:gap-x-10 md:pt-20 md:pb-8"
+    >
+      {/* The headline and the way in, on the left. */}
+      <div className="md:col-span-6 lg:col-span-5">
+        <h1 id="hero-title" className="text-[clamp(38px,min(4.5vw,8dvh),60px)] font-semibold leading-[1.04] tracking-[-0.045em]">
+          <WordsIn lines={['Everyone has a', 'different craving.']} accent={{ word: 'craving.', src: '/illustrations/craving.webp', width: 2240, height: 600 }} />
         </h1>
         <motion.div
-          className="lg:col-span-5"
+          className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center md:mt-10"
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 1, ease: easeOut, delay: 0.45 }}
         >
-          <p className="text-lg leading-7 text-body">
-            Biryani for one, a burrito for the next, a salad with no onion for the one after. Nobody has to agree on a
-            restaurant: every craving goes into the same order, and one tiffin's worth of lunch comes back.
-          </p>
-          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
-            <Button size="lg" onClick={onStart} className="pl-2">
-              <span className="grid size-8 place-items-center rounded-full bg-white"><GoogleG /></span>
-              Continue with Google
-            </Button>
-            <Button asChild size="lg" variant="ghost" className="group">
-              <a href="#pick">
-                Try the board
-                <Icon name="arrow" className="rotate-90 transition-transform duration-300 ease-apple group-hover:translate-y-0.5" />
-              </a>
-            </Button>
-          </div>
+          <Button size="lg" onClick={onStart} className="pl-2">
+            <span className="grid size-8 place-items-center rounded-full bg-white"><GoogleG /></span>
+            Continue with Google
+          </Button>
+          <Button asChild size="lg" variant="ghost" className="group">
+            <a href="#pick">
+              Try the board
+              <Icon name="arrow" className="rotate-90 transition-transform duration-300 ease-apple group-hover:translate-y-0.5" />
+            </a>
+          </Button>
         </motion.div>
       </div>
 
-      <figure ref={figure} className="mt-10 sm:mt-14">
-        <div className="no-scrollbar -mx-5 overflow-x-auto px-5 sm:mx-0 sm:px-0">
-          <div className="relative min-w-[880px] md:min-w-0" style={{ aspectRatio: `${SCENE.w} / ${SCENE.h}` }}>
-            <motion.img
-              src="/illustrations/lunch-line.png"
-              alt="Eight colleagues waiting at the office counter, each thinking of a different dish; at the front, one tiffin carrier with an order ticket."
-              width={2400}
-              height={1290}
-              fetchPriority="high"
-              decoding="async"
-              className="absolute inset-0 size-full select-none dark:invert"
-              initial={reduce ? { opacity: 0 } : { clipPath: 'inset(0 100% 0 0)' }}
-              animate={shown ? (reduce ? { opacity: 1 } : { clipPath: 'inset(0 0% 0 0)' }) : undefined}
-              transition={{ duration: 1.6, ease: easeOut }}
-            />
+      {/* The drawing, on the right: the four people at the end of the desk, and the tiffin. */}
+      <figure ref={figure} className="mt-14 md:col-span-6 md:mt-0 lg:col-span-7">
+        {/* The box is the cropped part of the scene. On a tablet and up it is as wide as the height left on the
+            screen allows (the 200px is the top bar, the platform strip and some air), so the hero stays on one screen. */}
+        <div
+          className="relative mx-auto w-full overflow-hidden md:w-[min(100%,calc((100dvh-200px)*var(--crop)))]"
+          style={{ aspectRatio: `${CROP.w} / ${SCENE.h}`, '--crop': CROP.w / SCENE.h } as React.CSSProperties}
+        >
+          <div className="absolute top-0 h-full" style={{ left: `${(-CROP.x / CROP.w) * 100}%`, width: `${(SCENE.w / CROP.w) * 100}%` }}>
+            <picture className="contents">
+                  <source media="(max-width: 767px)" srcSet="/illustrations/desks-1200.webp" type="image/webp" />
+                  <motion.img
+                    src="/illustrations/desks.webp"
+                    alt="Eight colleagues working on laptops at one long office desk, each daydreaming of a different dish; at the end of the desk, one tiffin carrier with an order ticket."
+                    width={2400}
+                    height={1110}
+                    fetchPriority="high"
+                    decoding="async"
+                    className="absolute inset-0 size-full select-none dark:invert"
+                    initial={reduce ? { opacity: 0 } : { clipPath: 'inset(0 100% 0 0)' }}
+                    animate={shown ? (reduce ? { opacity: 1 } : { clipPath: 'inset(0 0% 0 0)' }) : undefined}
+                    transition={{ duration: 1.6, ease: easeOut }}
+                  />
+            </picture>
 
             {thoughts.map((t, i) => {
+              if (i < FIRST) return null;
               const open = active === i;
               return (
                 <Tooltip key={`${i}-${t.kind}`} open={open}>
@@ -136,11 +147,11 @@ export default function Tastes({ onStart }: { onStart: () => void }) {
                   }}
                   initial={{ opacity: 0, scale: reduce ? 1 : 0.2 }}
                   animate={shown ? { opacity: 1, scale: 1 } : { opacity: 0, scale: reduce ? 1 : 0.2 }}
-                  transition={{ ...spring, delay: 1 + i * 0.13 }}
+                  transition={{ ...spring, delay: 1 + (i - FIRST) * 0.13 }}
                 >
                   <motion.span className="block" style={{ transformOrigin: '50% 70%' }} animate={{ scale: open ? 1.08 : 1 }} transition={spring}>
                   <motion.img
-                    src={`/illustrations/thoughts/${t.kind}.png`}
+                    src={`/illustrations/thoughts/${t.kind}.webp`}
                     alt=""
                     width={400}
                     height={300}
@@ -161,22 +172,8 @@ export default function Tastes({ onStart }: { onStart: () => void }) {
           </div>
         </div>
 
-        <motion.figcaption
-          className="mt-8 flex flex-col items-start justify-between gap-2 text-[13px] text-mute sm:flex-row sm:items-center"
-          initial={{ opacity: 0, y: 12 }}
-          animate={shown ? { opacity: 1, y: 0 } : { opacity: 0, y: 12 }}
-          transition={{ duration: 0.8, ease: easeOut, delay: 1.8 }}
-        >
-          <span>
-            <span className="md:hidden">Swipe along the line, tap</span>
-            <span className="hidden md:inline">Point at</span> a thought to see the dish from today's menus.
-          </span>
-          <span className="num">
-            <span className="font-semibold text-ink">One Swiggy order</span> · {lunch.picked.length} {lunch.picked.length === 1 ? 'person' : 'people'} ·{' '}
-            {lunch.cart.length} {lunch.cart.length === 1 ? 'restaurant' : 'restaurants'} · {rupees(lunch.total)}
-          </span>
-        </motion.figcaption>
       </figure>
+      <PlatformStrip />
     </section>
   );
 }

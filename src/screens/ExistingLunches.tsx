@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { toast } from 'sonner';
 import { useCancel, useLunches } from '@/api/queries';
 import type { ApiLunch, ApiLunchStatus } from '@/api/types';
+import { hhmm, isActive } from '@/api/adapt';
 import { useStore } from '@/store';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -23,13 +24,8 @@ const STATUS: Record<ApiLunchStatus, { label: string; variant: 'success' | 'warn
   cancelled: { label: 'Called off', variant: 'secondary', dot: 'bg-muted-foreground/40' },
 };
 
-// A lunch is running from the moment it starts until its food arrives or it is called off. It stays
-// active (one at a time) until the host finishes its last step, Enjoy your meal, which closes it.
-export const RUNNING = new Set<ApiLunchStatus>(['open', 'locked', 'confirmed', 'placed']);
-export const isActive = (l: ApiLunch): boolean => RUNNING.has(l.status) || (l.status === 'delivered' && !l.closed_at);
 const ORDERED = new Set<ApiLunchStatus>(['confirmed', 'placed', 'delivered']);
 
-const hhmm = (d: Date) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 
 export function lunchDay(iso: string) {
   const d = new Date(iso);
@@ -52,7 +48,7 @@ export const lunchName = (l: ApiLunch) => {
 export function useRunningLunches() {
   const { live } = useStore();
   const lunches = useLunches(!!live);
-  return { running: (lunches.data ?? []).filter(isActive), pending: !!live && lunches.isPending };
+  return { running: (lunches.data ?? []).filter((l) => isActive(l)), pending: !!live && lunches.isPending };
 }
 
 // Lunches already started, newest first: the running one on top with a way to close it, and the last
@@ -75,7 +71,7 @@ export function ExistingLunches({ show, onClose }: { show: 'running' | 'past'; o
         status: state.session.completed ? 'delivered' : state.session.status === 'placing' ? 'confirmed' : state.session.status,
         created_at: new Date().toISOString(),
       }];
-  const running = all.filter(isActive);
+  const running = all.filter((l) => isActive(l));
   const past = all.filter((l) => !isActive(l));
   const shownPast = showAll ? past : past.slice(0, 3);
 

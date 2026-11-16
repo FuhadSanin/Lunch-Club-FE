@@ -1,6 +1,7 @@
 import { QueryClient, keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from './client';
-import type { ApiNotifications, ApiPlace, ApiPlaceSuggestion, ApiAddress, ApiBoard, ApiBotStatus, ApiCompanySettings, ApiDish, ApiInvite, ApiItemInput, ApiLunch, ApiMe, ApiMenu, ApiOffered, ApiOrg, ApiPermission, ApiPerson, ApiRestaurant, ApiUser } from './types';
+import type { ApiOAuthDecision, ApiOAuthRequest, ApiConnection, ApiNotifications, ApiPlace, ApiPlaceSuggestion, ApiAddress, ApiBoard, ApiBotStatus, ApiCompanySettings, ApiDish, ApiInvite, ApiItemInput, ApiLunch, ApiMe, ApiMenu, ApiOffered, ApiOrg, ApiPerson, ApiRestaurant, ApiRole, ApiUser } from './types';
+import type { TickKind } from './types';
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -23,6 +24,7 @@ export const keys = {
   settings: ['company', 'settings'] as const,
   invites: ['company', 'invites'] as const,
   members: ['company', 'members'] as const,
+  roles: ['company', 'roles'] as const,
   lunches: ['lunches'] as const,
   board: (id: string) => ['lunches', id] as const,
   restaurants: (place: Place, q: string) => ['restaurants', place.lat, place.lng, q] as const,
@@ -66,8 +68,12 @@ export const useBoard = (id: string | undefined) =>
     queryKey: keys.board(id ?? 'none'),
     queryFn: () => api<ApiBoard>(`lunches/${id}`),
     enabled: !!id,
-    refetchInterval: (q) =>
-      q.state.data && MOVING.has(q.state.data.status) ? (liveBoards.has(q.state.data.id) ? 120_000 : 15_000) : false,
+    // Until the host closes it: after the food arrives there is still handing out to follow, on every device.
+    refetchInterval: (q) => {
+      const board = q.state.data;
+      const running = board && (MOVING.has(board.status) || (board.status === 'delivered' && !board.closed_at));
+      return running ? (liveBoards.has(board.id) ? 120_000 : 15_000) : false;
+    },
   });
 
 export const useRestaurantsQuery = (place: Place, q: string, enabled: boolean) =>
@@ -102,30 +108,46 @@ export const useDishesQuery = (place: Place, q: string, enabled: boolean) =>
 
 // The lunch list follows a board the API sent back: its status, or a new lunch at the top. Patched in
 // the cache rather than fetched again.
+// What a lunch in the list has, out of everything a board carries. Every field of ApiLunch must be named here (the
+// compiler checks it), so a new one can't be left out of the list by mistake: a list entry without `closed_at`
+// once made a lunch the host had closed look as if it were still running.
+const IN_THE_LIST: Record<keyof ApiLunch, true> = {
+  id: true, host: true, cutoff_at: true, status: true, created_at: true, name: true, address: true,
+  org_kind: true, offered_restaurants: true, closed_at: true, joined: true, joining_open: true,
+};
+const LIST_FIELDS = Object.keys(IN_THE_LIST) as (keyof ApiLunch)[];
+
 function patchLunches(qc: QueryClient, board: ApiBoard) {
   qc.setQueryData<ApiLunch[]>(keys.lunches, (list) => {
     if (!list) return list;
-    const { id, host, cutoff_at, status, created_at, name, delivery_address, delivery_lat, delivery_lng, org_kind, joined } = board;
-    const lunch = { id, host, cutoff_at, status, created_at, name, delivery_address, delivery_lat, delivery_lng, org_kind, joined };
-    return list.some((l) => l.id === id) ? list.map((l) => (l.id === id ? lunch : l)) : [lunch, ...list];
+    const lunch = Object.fromEntries(LIST_FIELDS.map((field) => [field, board[field]])) as ApiLunch;
+    return list.some((l) => l.id === board.id) ? list.map((l) => (l.id === board.id ? lunch : l)) : [lunch, ...list];
   });
 }
 
 // Actions that answer with the whole board put it straight into the cache: no second request.
-function useBoardAction<V>(request: (v: V) => Promise<ApiBoard>) {
+// `refetchLunches`: also ask the API for the list again afterwards, for actions that end a lunch (closing,
+// calling off), so everything that depends on "is a lunch running" follows the server and not our patch.
+function useBoardAction<V>(request: (v: V) => Promise<ApiBoard>, { refetchLunches = false } = {}) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: request,
     onSuccess: (board) => {
       qc.setQueryData(keys.board(board.id), board);
       patchLunches(qc, board);
+      if (refetchLunches) void qc.invalidateQueries({ queryKey: keys.lunches, exact: true });
     },
   });
 }
 
 export const useStartLunch = () =>
-  useBoardAction((v: { cutoff_at: string; delivery_address: string; name?: string; delivery_lat?: number; delivery_lng?: number; offered_restaurants?: ApiOffered[] }) =>
+  useBoardAction((v: { cutoff_at: string; address: { address: string; lat?: number; lng?: number }; name?: string; offered_restaurants?: ApiOffered[] }) =>
     api<ApiBoard>('lunches', { method: 'POST', body: v }));
+
+// The host stops (or allows again) new people joining with the lunch's link. People already in it stay.
+export const useSetJoining = () =>
+  useBoardAction((v: { id: string; open: boolean }) =>
+    api<ApiBoard>(`lunches/${v.id}/joining`, { method: 'PUT', body: { open: v.open } }));
 
 // Opening a lunch's shared link: join it as a guest (or just open it, if it is in your own company).
 export const useJoinLunch = () => useBoardAction((id: string) => api<ApiBoard>(`lunches/${id}/join`, { method: 'POST' }));
@@ -146,7 +168,8 @@ export const useLeaveLunch = () => {
 export const usePlaceSuggestions = (text: string, near?: Place) =>
   useQuery({
     queryKey: ['places', text, near?.lat.toFixed(1), near?.lng.toFixed(1)],
-    queryFn: () => api<ApiPlaceSuggestion[]>('places', { params: { q: text, lat: near?.lat, lng: near?.lng } }),
+    // The signal cancels a search that typing has already overtaken, so it never queues behind the new one.
+    queryFn: ({ signal }) => api<ApiPlaceSuggestion[]>('places', { params: { q: text, lat: near?.lat, lng: near?.lng }, signal }),
     enabled: text.length >= 2,
     staleTime: 10 * 60_000,
     retry: false,
@@ -161,15 +184,15 @@ export const useLock = () => useBoardAction((id: string) => api<ApiBoard>(`lunch
 export const useUnlock = () => useBoardAction((id: string) => api<ApiBoard>(`lunches/${id}/unlock`, { method: 'POST' }));
 
 // The host ends a lunch whose food has arrived; it then drops off everyone's Today's lunch.
-export const useCloseLunch = () => useBoardAction((id: string) => api<ApiBoard>(`lunches/${id}/close`, { method: 'POST' }));
+export const useCloseLunch = () => useBoardAction((id: string) => api<ApiBoard>(`lunches/${id}/close`, { method: 'POST' }), { refetchLunches: true });
 
-export const useCancel = () => useBoardAction((id: string) => api<ApiBoard>(`lunches/${id}/cancel`, { method: 'POST' }));
+export const useCancel = () => useBoardAction((id: string) => api<ApiBoard>(`lunches/${id}/cancel`, { method: 'POST' }), { refetchLunches: true });
 
 export const useConfirm = () => useBoardAction((id: string) => api<ApiBoard>(`lunches/${id}/confirm`, { method: 'POST' }));
 
 export const useOrderPlaced = () =>
-  useBoardAction((v: { orderId: string; swiggyOrderId: string }) =>
-    api<ApiBoard>(`orders/${v.orderId}/placed`, { method: 'POST', body: { swiggy_order_id: v.swiggyOrderId } }),
+  useBoardAction((v: { orderId: string; platformOrderId: string }) =>
+    api<ApiBoard>(`orders/${v.orderId}/placed`, { method: 'POST', body: { platform_order_id: v.platformOrderId } }),
   );
 
 // The host marks someone as skipping today (final until reopened).
@@ -180,12 +203,33 @@ export const useSkipPerson = () =>
 export const useReopen = () =>
   useBoardAction((v: { lunchId: string; userId: string }) => api<ApiBoard>(`lunches/${v.lunchId}/complete/${v.userId}`, { method: 'DELETE' }));
 
-// Make someone a host (every permission) or a member again.
-export function useSetPermissions() {
+// Tick or untick something the host tracks while running the lunch (reviewed, arrived, handed out).
+// Nothing changes on screen until the API has said yes: the progress, "Next step" and the celebration all
+// follow the tick at the same moment. Ticks go one after another (a scope), so each answer is newer than the
+// one before it and the last one on screen is the latest.
+export function useTick() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (v: { userId: string; permissions: ApiPermission[] }) =>
-      api<ApiUser>(`company/members/${v.userId}/permissions`, { method: 'PUT', body: { permissions: v.permissions } }),
+    mutationKey: ['tick'],
+    scope: { id: 'ticks' },
+    mutationFn: (v: { lunchId: string; kind: TickKind; key: string; done: boolean }) =>
+      api<ApiBoard>(`lunches/${v.lunchId}/ticks`, { method: 'PUT', body: { kind: v.kind, key: v.key, done: v.done } }),
+    // A refresh that started before the tick must not land after it and put the old ticks back.
+    onMutate: (v) => qc.cancelQueries({ queryKey: keys.board(v.lunchId) }),
+    onSuccess: (board) => qc.setQueryData(keys.board(board.id), board),
+  });
+}
+
+// The company's roles (Host, Member and any made since), with what each allows.
+export const useRoles = (enabled = true) =>
+  useQuery({ queryKey: keys.roles, queryFn: () => api<ApiRole[]>('company/roles'), enabled, staleTime: 5 * 60_000 });
+
+// Give someone these roles instead of the ones they have: Host to make them a host, Member to undo it.
+export function useSetRoles() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { userId: string; roleIds: string[] }) =>
+      api<ApiUser>(`company/members/${v.userId}/roles`, { method: 'PUT', body: { roles: v.roleIds } }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: keys.members });
       qc.invalidateQueries({ queryKey: keys.me });
@@ -217,13 +261,16 @@ export function useSavePicks(lunchId: string | undefined, me: ApiPerson | undefi
   const id = lunchId ?? 'none';
   return useMutation({
     mutationFn: (v: { items: ApiItemInput[]; complete: boolean }) => api<ApiBoard>(`lunches/${id}/picks`, { method: 'PUT', body: v }),
+    // A saved pick shows at once and is taken back if the API refuses. Completing does not: it is final, and
+    // the page says "complete" (and celebrates) only once the API has answered 200.
     onMutate: (v) =>
-      optimistic(qc, id, (b) => ({
-        ...b,
-        items: [...b.items.filter((i) => i.user.id !== me?.id), ...v.items.map((i, n) => ({ ...i, id: `pending-${n}`, user: me! }))],
-        skipped: b.skipped.filter((p) => p.id !== me?.id),
-        completed: v.complete ? [...(b.completed ?? []).filter((p) => p.id !== me?.id), me!] : b.completed,
-      }))(),
+      v.complete
+        ? undefined
+        : optimistic(qc, id, (b) => ({
+            ...b,
+            items: [...b.items.filter((i) => i.user.id !== me?.id), ...v.items.map((i, n) => ({ ...i, id: `pending-${n}`, user: me! }))],
+            skipped: b.skipped.filter((p) => p.id !== me?.id),
+          }))(),
     onSuccess: (board) => qc.setQueryData(keys.board(id), board),
     onError: (_e, _v, ctx) => ctx?.before && qc.setQueryData(keys.board(id), ctx.before),
   });
@@ -256,7 +303,7 @@ export function useCreateCompany() {
   });
 }
 
-// Settings: the company, its lunch defaults, office addresses and invites.
+// Settings: the company, its lunch defaults, addresses and invites.
 export const useCompanySettings = (enabled = true) =>
   useQuery({ queryKey: keys.settings, queryFn: () => api<ApiCompanySettings>('company/settings'), enabled, staleTime: 5 * 60_000 });
 
@@ -278,7 +325,7 @@ export function useUpdateCompany() {
 export function useAddAddress() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (address: string) => api<ApiAddress>('company/addresses', { method: 'POST', body: { address } }),
+    mutationFn: (v: { address: string; lat?: number; lng?: number }) => api<ApiAddress>('company/addresses', { method: 'POST', body: v }),
     onSuccess: () => qc.invalidateQueries({ queryKey: keys.settings }),
   });
 }
@@ -318,3 +365,31 @@ export function useMarkRead() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications'] }),
   });
 }
+
+// The AI assistants connected to your account (each is signed in as you through the MCP server), and cutting one off.
+export const useConnections = (enabled = true) =>
+  useQuery({ queryKey: ['connections'], queryFn: () => api<ApiConnection[]>('me/tokens'), enabled, staleTime: 30_000 });
+
+export function useDisconnect() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api<void>(`me/tokens/${id}`, { method: 'DELETE' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['connections'] }),
+  });
+}
+
+// Connecting an AI assistant by signing in: it asks, the person reads what it wants and allows or refuses.
+export const useOAuthRequest = (id: string) =>
+  useQuery({
+    queryKey: ['oauth-request', id],
+    queryFn: () => api<ApiOAuthRequest>(`oauth/requests/${id}`),
+    retry: false,
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+  });
+
+export const useDecideOAuth = () =>
+  useMutation({
+    mutationFn: (v: { id: string; allow: boolean }) =>
+      api<ApiOAuthDecision>(`oauth/requests/${v.id}/${v.allow ? 'approve' : 'deny'}`, { method: 'POST' }),
+  });

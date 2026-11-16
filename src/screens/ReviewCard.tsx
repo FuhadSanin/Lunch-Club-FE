@@ -97,7 +97,7 @@ export function ReviewProgress({ done, of, label }: { done: number; of: number; 
   return (
     <div className="mb-4">
       <div className="flex items-baseline justify-between text-[13px]">
-        <span className={cn('font-medium', all ? 'text-ok' : 'text-foreground')}>{all ? `All ${of} ${label}` : `${done} of ${of} ${label}`}</span>
+        <span className={cn('font-medium', all ? 'text-ok' : 'text-foreground')}>{all ? (of === 1 ? `Everyone: 1 ${label}` : `All ${of} ${label}`) : `${done} of ${of} ${label}`}</span>
         <span className="text-muted-foreground num">{of ? Math.round((done / of) * 100) : 0}%</span>
       </div>
       <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden="true">

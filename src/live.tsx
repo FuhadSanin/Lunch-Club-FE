@@ -3,151 +3,32 @@
 // become API calls. Without an answer (no API running, or not signed in) they keep the demo data.
 // The landing page always uses the demo: it sits outside this provider.
 
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useIsMutating } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
-  useBoard, useConfirm, useLock, useReopen, useUnlock, useSkipPerson, useLunches, useMe, useMembers, useOrderDelivered, useSavePicks, useSkip, useStartLunch,
+  useBoard, useConfirm, useLock, useReopen, useUnlock, useSkipPerson, useLunches, useMe, useMembers, useOrderDelivered, useSavePicks, useSkip, useStartLunch, useTick,
   useAddAddress, useCloseLunch, useCompanySettings, useInvitePeople, useInvites, useJoinLunch, useRemoveAddress, useUpdateCompany,
 } from '@/api/queries';
 import { ApiError } from '@/api/client';
 import { isDemoPreview } from '@/auth';
 import { useLiveBoard } from '@/lib/live-board';
-import type { ApiBoard, ApiCompanySettings, ApiItem, ApiItemInput, ApiLunch, ApiMe, ApiOffered, ApiPermission, ApiPerson } from '@/api/types';
-import type { Org } from '@/data/demo';
-
-const HOST_PERMISSIONS: ApiPermission[] = ['session_create', 'session_update', 'session_delete', 'review_create', 'order_update'];
-import { DEMO_SESSION, hueOf, rememberPeople, type Person, type Pick, type Session, type SessionStatus } from '@/data/demo';
-import { allDishes, dishById, knownRestaurants, rememberStubs, restaurantById, slug, type Restaurant } from '@/data/menus';
-import { StoreContext, useStore, type Action, type Store } from '@/store';
+import {
+  HOST_PERMISSIONS, STATUS, currentLunch, cutoffAt, firstName, fromOffered, hhmm, isActive, localDate, orgFrom, picksFrom, ticksFrom, toOffered, toPerson,
+} from '@/api/adapt';
+import type { ApiItemInput, ApiMe, ApiOrder, ApiPermission, ApiPerson, TickKind } from '@/api/types';
+import type { Org, Restaurant, Role, Session } from '@/model';
+import { rememberPeople } from '@/data/people';
+import { DEMO_SESSION } from '@/data/demo';
+import { dishById, rememberStubs, restaurantById } from '@/data/catalog';
+import { LINK, readPin, useExtras, writePin } from '@/lib/lunch-extras';
+import { StoreContext, useStore, type Action, type Live, type Store } from '@/store';
 import { SetUpCompany } from '@/screens/SetUpCompany';
+import { AppSkeleton } from '@/components/skeletons';
+import { Button } from '@/components/ui/button';
 import { useHashRoute } from '@/ui';
 
-const localDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-const hhmm = (d: Date) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-
-// Today at HH:MM, as the API wants it. A time already past means tomorrow.
-const cutoffAt = (time: string) => {
-  const d = new Date();
-  d.setHours(Number(time.slice(0, 2)), Number(time.slice(3, 5)), 0, 0);
-  if (d.getTime() <= Date.now()) d.setDate(d.getDate() + 1);
-  return d.toISOString();
-};
-
-const STATUS: Record<ApiBoard['status'], SessionStatus> = {
-  open: 'open',
-  locked: 'locked',
-  confirmed: 'placing',
-  placed: 'placed',
-  delivered: 'delivered',
-  cancelled: 'delivered', // never shown: a called-off lunch is not today's lunch
-};
-
-// Today's lunch: the one still active (one at a time). It is active from the start until the host
-// finishes its last step, Enjoy your meal, which closes it on the server, or calls it off.
-const RUNNING = new Set<ApiLunch['status']>(['open', 'locked', 'confirmed', 'placed']);
-const isActive = (l: ApiLunch, extras: Record<string, Extras>) =>
-  RUNNING.has(l.status) || (l.status === 'delivered' && !l.closed_at && !extras[l.id]?.completed);
-const currentLunch = (lunches: ApiLunch[] = [], extras: Record<string, Extras>) =>
-  lunches.find((l) => RUNNING.has(l.status)) ?? lunches.find((l) => isActive(l, extras));
-
-// A shared lunch link: #/lunch/<the lunch's id>. Opening it makes that lunch the one this browser shows.
-const LINK = /^\/(?:lunch|pick)\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
-const PIN_KEY = 'lunchboard-linked-lunch';
-const readPin = () => {
-  try {
-    return window.localStorage.getItem(PIN_KEY);
-  } catch {
-    return null;
-  }
-};
-
-const firstName = (name: string) => name.trim().split(/\s+/)[0] || 'My';
-
-const safeUrl = (u: string) => {
-  try {
-    return encodeURI(decodeURI(u));
-  } catch {
-    return u.replace(/ /g, '%20');
-  }
-};
-// The offered list travels with the lunch, so it is the same in every browser.
-const toOffered = (r: Restaurant): ApiOffered => ({
-  id: r.id, name: r.name,
-  ...(r.area && { area: r.area }), ...(r.cuisines?.length && { cuisines: r.cuisines.slice(0, 20) }),
-  ...(r.rating && { rating: r.rating }), ...(r.eta && { eta: r.eta }),
-  ...(r.distanceKm !== undefined && { distance_km: Math.round(r.distanceKm * 100) / 100 }),
-  // Swiggy image links can hold spaces ("... (1).jpg"); the server wants a proper URL.
-  ...(r.photo?.startsWith('http') && { photo: safeUrl(r.photo) }),
-});
-const fromOffered = (r: ApiOffered): Restaurant => ({
-  id: r.id, name: r.name, area: r.area, cuisines: r.cuisines, rating: r.rating, eta: r.eta, distanceKm: r.distance_km, photo: r.photo, categories: [],
-});
-const toPerson = (p: ApiPerson & { email?: string }): Person => ({ id: p.id, name: p.name, email: p.email ?? '', hue: hueOf(p.id) });
-
-// Picks store a restaurant and dish by name. Find the dish in a loaded menu, or make a stand-in so the
-// board can still show it.
-function dishIdFor(item: ApiItem, stubs: Map<string, Restaurant>): string {
-  const rname = item.restaurant_name.toLowerCase();
-  const dname = item.dish_name.toLowerCase();
-  for (const r of knownRestaurants()) {
-    if (r.name.toLowerCase() !== rname) continue;
-    const dish = allDishes(r).find((d) => d.name.toLowerCase() === dname);
-    if (dish) return dish.id;
-  }
-  const rid = `api-${slug(item.restaurant_name)}`;
-  const id = `${rid}:${slug(item.dish_name)}`;
-  const stub = stubs.get(rid) ?? { id: rid, name: item.restaurant_name, categories: [{ name: 'Picked', dishes: [] }] };
-  if (!allDishes(stub).some((d) => d.id === id))
-    stub.categories[0].dishes.push({ id, name: item.dish_name, price: item.price_paise / 100, veg: false });
-  stubs.set(rid, stub);
-  return id;
-}
-
-function picksFrom(board: ApiBoard): Record<string, Pick> {
-  const stubs = new Map<string, Restaurant>();
-  const picks: Record<string, Pick> = {};
-  for (const item of board.items) {
-    const pick = (picks[item.user.id] ??= { items: [], note: '', skipped: false, updatedAt: '' });
-    pick.items.push({ dishId: dishIdFor(item, stubs), qty: item.quantity });
-    pick.note ||= item.note;
-  }
-  for (const p of board.skipped) picks[p.id] = { items: [], note: '', skipped: true, updatedAt: '' };
-  for (const p of board.completed ?? []) if (picks[p.id]) picks[p.id].done = true;
-  rememberStubs([...stubs.values()]);
-  return picks;
-}
-
-// What the API doesn't keep yet, kept in this browser per lunch: the restaurants it offers and the host's
-// review marks.
-type Extras = {
-  restaurantIds?: string[];
-  checked?: Record<string, boolean>;
-  handedOut?: Record<string, boolean>;
-  arrived?: Record<string, boolean>; // restaurant id → collected
-  completed?: boolean; // the host closed the lunch
-};
-const EXTRAS_KEY = 'lunchboard-live-v1';
-function useExtras() {
-  const [all, setAll] = useState<Record<string, Extras>>(() => {
-    try {
-      return JSON.parse(window.localStorage.getItem(EXTRAS_KEY) ?? '{}');
-    } catch {
-      return {};
-    }
-  });
-  const update = (lunchId: string, change: (e: Extras) => Extras) =>
-    setAll((cur) => {
-      const next = { ...cur, [lunchId]: change(cur[lunchId] ?? {}) };
-      try {
-        window.localStorage.setItem(EXTRAS_KEY, JSON.stringify(next));
-      } catch {
-        /* storage unavailable: marks last until the page closes */
-      }
-      return next;
-    });
-  return [all, update] as const;
-}
+const NO_ORDERS: ApiOrder[] = [];
 
 function useClock() {
   const [now, setNow] = useState(() => hhmm(new Date()));
@@ -163,31 +44,28 @@ function isServerDown(error: unknown) {
 }
 
 function ServerDown({ error, onRetry }: { error: Error; onRetry: () => void }) {
+  // The server not answering at all, or answering that this can't be shown (a role that can't see lunches).
+  const unreachable = isServerDown(error);
   return (
     <div role="alert" className="grid min-h-dvh place-items-center bg-canvas p-6 text-sm">
       <div className="grid max-w-md gap-3 text-center">
-        <h1 className="text-lg font-semibold">Can't reach the lunch server</h1>
+        <h1 className="text-lg font-semibold">{unreachable ? "We can't reach Lunch Board right now" : "Today's lunch didn't load"}</h1>
         <p className="text-muted-foreground">{error.message}</p>
-        <p className="text-muted-foreground">
-          Start the API with <code className="font-mono">docker compose up -d db api</code>, then try again. Nothing here is demo data.
-        </p>
-        <button type="button" onClick={onRetry} className="mx-auto rounded-full bg-foreground px-4 py-2 text-background">
-          Try again
-        </button>
+        {unreachable && <p className="text-muted-foreground">Your picks are safe. Check your internet connection, then try again.</p>}
+        {import.meta.env.DEV && unreachable && (
+          <p className="text-muted-foreground">
+            Developing? Start the API with <code className="font-mono">docker compose up -d db api</code>.
+          </p>
+        )}
+        <Button className="mx-auto" onClick={onRetry}>Try again</Button>
       </div>
     </div>
   );
 }
 
+// While the app finds out who you are and what today's lunch is: its own shape, in grey.
 function Connecting() {
-  return (
-    <div role="status" className="grid min-h-dvh place-items-center bg-canvas text-sm text-muted-foreground">
-      <span className="flex items-center gap-3">
-        <span className="size-4 animate-spin rounded-full border-2 border-input border-t-foreground" aria-hidden="true" />
-        Loading today's lunch…
-      </span>
-    </div>
-  );
+  return <AppSkeleton label="Loading today's lunch" />;
 }
 
 export function LiveStore({ children }: { children: ReactNode }) {
@@ -215,11 +93,7 @@ function LiveBridge({ me, children }: { me: ApiMe; children: ReactNode }) {
   const [pinned, setPinned] = useState(readPin);
   const pin = (id: string) => {
     setPinned(id);
-    try {
-      window.localStorage.setItem(PIN_KEY, id);
-    } catch {
-      /* storage unavailable: the link still works until the page closes */
-    }
+    writePin(id);
   };
   const linkedId = LINK.exec(route)?.[1].toLowerCase();
   useEffect(() => {
@@ -257,6 +131,7 @@ function LiveBridge({ me, children }: { me: ApiMe; children: ReactNode }) {
   const reopen = useReopen();
   const unlock = useUnlock();
   const skipPerson = useSkipPerson();
+  const tick = useTick();
   const settings = useCompanySettings(hasOrg);
   const invites = useInvites(hasOrg && me.permissions.includes('member_read'));
   const join = useJoinLunch();
@@ -276,12 +151,12 @@ function LiveBridge({ me, children }: { me: ApiMe; children: ReactNode }) {
     return list;
   }, [members.data, board.data, me]);
 
-  const picks = useMemo(() => (board.data ? picksFrom(board.data) : {}), [board.data]);
+  const { picks, restaurantNames } = useMemo(() => (board.data ? picksFrom(board.data) : { picks: {}, restaurantNames: {} }), [board.data]);
 
   const session = useMemo<Session>(() => {
     const b = board.data;
     if (!b) return { ...DEMO_SESSION, id: 'none', restaurantIds: [], bot: [], handedOut: {}, checked: {} };
-    const placed = b.orders.map((o) => o.swiggy_order_id).filter(Boolean);
+    const placed = b.orders.map((o) => o.platform_order_id).filter(Boolean);
     // The lunch carries the list the host offered; older lunches only had it in the host's browser.
     if (b.offered_restaurants?.length) rememberStubs(b.offered_restaurants.map(fromOffered)); // so every browser can show them
     const offered = b.offered_restaurants?.length ? b.offered_restaurants.map((r) => r.id) : (mine?.restaurantIds ?? []);
@@ -290,20 +165,26 @@ function LiveBridge({ me, children }: { me: ApiMe; children: ReactNode }) {
       title: 'Lunch',
       date: localDate(new Date(b.cutoff_at)),
       cutoff: hhmm(new Date(b.cutoff_at)),
-      address: b.delivery_address,
+      address: b.address?.address ?? '', // a board saved before addresses had their own table has none
       restaurantIds: offered,
       hostId: b.host.id,
       status: STATUS[b.status],
       orderRef: placed.length ? placed.map((id) => `#${id}`).join(', ') : null,
       bot: [],
-      handedOut: mine?.handedOut ?? {},
-      checked: mine?.checked ?? {},
-      arrived: mine?.arrived ?? {},
+      ...ticksFrom(b, restaurantNames),
       completed: !!mine?.completed,
     };
-  }, [board.data, mine]);
+  }, [board.data, restaurantNames, mine]);
 
   const fail = (what: string) => (e: Error) => toast.error(what, { description: e.message });
+  // Resolves once the API has saved the tick; rejects (after saying why) if it refused.
+  const saveTick = (kind: TickKind, key: string | undefined, done: boolean): Promise<unknown> => {
+    if (!lunch || !key) return Promise.resolve();
+    return tick.mutateAsync({ lunchId: lunch.id, kind, key, done }).catch((e: Error) => {
+      fail("Couldn't save that")(e);
+      throw e;
+    });
+  };
 
   const dispatch = (a: Action): void | Promise<unknown> => {
     const id = lunch?.id;
@@ -323,8 +204,13 @@ function LiveBridge({ me, children }: { me: ApiMe; children: ReactNode }) {
           }];
         });
         if (a.type === 'savePick') return void savePicks.mutate({ items, complete: false }, { onError: fail("Couldn't save your pick") });
-        // Completing: the cart goes on the board and becomes final in one request.
-        if (!id) return;
+        // Completing: the cart goes on the board and becomes final in one request. It resolves only when the
+        // API has said yes, so nothing is celebrated (or shown as complete) before that.
+        if (!id) {
+          const none = new Error('There is no lunch to complete your order in. Refresh and try again.');
+          fail("Couldn't complete your order")(none);
+          return Promise.reject(none);
+        }
         return savePicks
           .mutateAsync({ items, complete: true })
           .catch((e: Error) => {
@@ -372,9 +258,8 @@ function LiveBridge({ me, children }: { me: ApiMe; children: ReactNode }) {
         return start
           .mutateAsync({
             cutoff_at: cutoffAt(a.cutoff),
-            delivery_address: a.address,
+            address: { address: a.address, ...(a.lat !== undefined && a.lng !== undefined && { lat: a.lat, lng: a.lng }) },
             ...(a.name?.trim() && { name: a.name.trim() }),
-            ...(a.lat !== undefined && a.lng !== undefined && { delivery_lat: a.lat, delivery_lng: a.lng }),
             offered_restaurants: a.restaurantIds.map((id) => restaurantById(id)).filter((r): r is Restaurant => !!r).map(toOffered),
           })
           .then((b) => {
@@ -386,26 +271,42 @@ function LiveBridge({ me, children }: { me: ApiMe; children: ReactNode }) {
             fail("Couldn't start the lunch")(e);
             throw e;
           });
-      case 'check':
-        return void (id && updateExtras(id, (e) => ({ ...e, checked: { ...e.checked, [a.key]: a.done } })));
+      // The host's ticks are kept on the lunch, so every device and a second host see them.
+      case 'check': {
+        // "r:<restaurant id>" or "p:<person id>"
+        const [of, key] = [a.key.slice(0, 1), a.key.slice(2)];
+        return of === 'p' ? saveTick('reviewed_person', key, a.done) : saveTick('reviewed_restaurant', restaurantNames[key], a.done);
+      }
       case 'handOut':
-        return void (id && updateExtras(id, (e) => ({ ...e, handedOut: { ...e.handedOut, [a.userId]: a.done } })));
+        return saveTick('handed_out', a.userId, a.done);
       case 'arrive': {
-        if (!id) return;
-        const arrived = { ...mine?.arrived, [a.restaurantId]: a.done };
-        updateExtras(id, (e) => ({ ...e, arrived }));
-        // A Swiggy order is delivered once every restaurant in it has arrived.
-        const names = new Set(Object.entries(arrived).filter(([, v]) => v).map(([rid]) => restaurantById(rid)?.name));
-        for (const o of board.data?.orders ?? [])
-          if (o.status === 'placed' && o.restaurants.every((n) => names.has(n)))
-            delivered.mutate(o.id, { onError: fail("Couldn't mark the order as arrived") });
-        return;
+        const name = restaurantNames[a.restaurantId];
+        // An order is delivered once every restaurant in it has arrived.
+        const arrived = new Set(board.data?.arrived_restaurants);
+        if (a.done) arrived.add(name);
+        else arrived.delete(name);
+        const nowDelivered = (board.data?.orders ?? []).filter((o) => o.status === 'placed' && o.restaurants.every((n) => arrived.has(n)));
+        return saveTick('arrived', name, a.done).then(() =>
+          Promise.all(
+            nowDelivered.map((o) =>
+              delivered.mutateAsync(o.id).catch((e: Error) => {
+                fail("Couldn't mark the order as arrived")(e);
+                throw e;
+              }),
+            ),
+          ),
+        );
       }
       case 'finishLunch':
         // Closed on the server, so it ends for everyone in it, not just in this browser.
         if (!id) return;
-        updateExtras(id, (e) => ({ ...e, completed: true }));
-        return closeLunch.mutateAsync(id).catch(fail("Couldn't close the lunch"));
+        return closeLunch.mutateAsync(id).then(
+          () => updateExtras(id, (e) => ({ ...e, completed: true })), // off Today's lunch at once, only once it really closed
+          (e: Error) => {
+            fail("Couldn't close the lunch")(e);
+            throw e;
+          },
+        );
       case 'setRole':
       case 'botStep':
       case 'placed':
@@ -421,32 +322,32 @@ function LiveBridge({ me, children }: { me: ApiMe; children: ReactNode }) {
   // added or removed. The email domain decides who can join, so it never changes from here.
   const failed = (error: unknown) =>
     toast.error("Couldn't save that", { description: error instanceof ApiError ? error.message : 'Try again.' });
-  const saveOrg = (change: Partial<Org>) => {
+  // Resolves once everything is saved; rejects (after saying why) if any part was refused.
+  const saveOrg = (change: Partial<Org>): Promise<unknown> => {
     const s = settings.data;
-    if (!s) return;
+    if (!s) return Promise.resolve();
+    const saving: Promise<unknown>[] = [];
     const patch: Parameters<typeof updateCompany.mutate>[0] = {
       ...(change.name !== undefined && { name: change.name }),
       ...(change.team !== undefined && { team_name: change.team }),
       ...(change.autoJoin !== undefined && { auto_join: change.autoJoin }),
-      ...(change.restaurantMode !== undefined && { restaurant_mode: change.restaurantMode }),
-      ...(change.radiusKm !== undefined && { radius_km: change.radiusKm }),
-      ...(change.office && { office_lat: change.office.lat, office_lng: change.office.lng }),
     };
-    if (Object.keys(patch).length) updateCompany.mutate(patch, { onError: failed });
+    if (Object.keys(patch).length) saving.push(updateCompany.mutateAsync(patch));
     if (change.addresses) {
       const now = new Set(change.addresses);
-      for (const a of change.addresses.filter((x) => !s.addresses.some((y) => y.address === x))) addAddress.mutate(a, { onError: failed });
-      for (const a of s.addresses.filter((y) => !now.has(y.address))) removeAddress.mutate(a.id, { onError: failed });
+      for (const a of change.addresses.filter((x) => !s.addresses.some((y) => y.address === x))) saving.push(addAddress.mutateAsync({ address: a, ...change.places?.[a] }));
+      for (const a of s.addresses.filter((y) => !now.has(y.address))) saving.push(removeAddress.mutateAsync(a.id));
     }
     if (change.invites) {
       const invited = new Set(invites.data?.map((i) => i.email));
       const added = change.invites.filter((e) => !invited.has(e.toLowerCase()));
-      if (added.length) invitePeople.mutate(added, { onError: failed });
+      if (added.length) saving.push(invitePeople.mutateAsync(added));
     }
+    return Promise.all(saving).catch((e: unknown) => {
+      failed(e);
+      throw e;
+    });
   };
-
-  // isLoading, not isPending: a query switched off for this page is pending forever but never loading.
-  if (members.isLoading || lunches.isPending || settings.isLoading || (lunch && board.isPending)) return <Connecting />;
 
   // The screens have two views: someone who runs lunches sees the host's, everyone else the member's.
   const can = (p: ApiPermission) => me.permissions.includes(p);
@@ -455,54 +356,57 @@ function LiveBridge({ me, children }: { me: ApiMe; children: ReactNode }) {
   const runsLunches = HOST_PERMISSIONS.some(can) || startsParties;
   // In someone else's party you are a guest: you pick, you don't run it.
   const guest = !!lunch?.joined;
+  const role: Role = runsLunches && !guest ? 'host' : 'member';
 
-  const value: Store = {
-    ...demo,
-    state: {
-      ...demo.state,
-      role: runsLunches && !guest ? 'host' : 'member',
-      session,
-      picks,
-      org: settings.data
-        ? orgFrom(settings.data, invites.data?.filter((i) => !i.accepted).map((i) => i.email) ?? [], demo.state.org)
-        : { ...demo.state.org, name: me.org?.name ?? `${firstName(me.name)}'s party`, team: me.org?.name ?? `${firstName(me.name)}'s party`, emailDomain: me.org?.email_domain ?? '' },
-    },
-    dispatch,
-    people,
-    meId: me.id,
-    now,
-    live: {
+  // Every screen that calls useStore() draws again when the store's value changes. So each part below is
+  // kept as it is until something in it really changes, and the two functions are the same ones for the
+  // whole life of the page (they call whatever the latest render made).
+  const latest = useRef({ dispatch, joinInvited });
+  useEffect(() => {
+    latest.current = { dispatch, joinInvited };
+  });
+  const stableDispatch = useCallback((a: Action) => latest.current.dispatch(a), []);
+  const stableJoin = useCallback(() => latest.current.joinInvited(), []);
+
+  const pendingInvites = invites.data;
+  const org = useMemo<Org>(() => {
+    const party = me.org?.name ?? `${firstName(me.name)}'s party`;
+    return settings.data
+      ? orgFrom(settings.data, pendingInvites?.filter((i) => !i.accepted).map((i) => i.email) ?? [], demo.state.org)
+      : { ...demo.state.org, name: party, team: party, emailDomain: me.org?.email_domain ?? '' };
+  }, [settings.data, pendingInvites, demo.state.org, me.org, me.name]);
+  const state = useMemo(() => ({ ...demo.state, role, session, picks, org }), [demo.state, role, session, picks, org]);
+
+  const lat = lunch?.address?.lat ?? null;
+  const lng = lunch?.address?.lng ?? null;
+  const joinProblem = invited ? (joinError[invited] ?? '') : '';
+  const orders = board.data?.orders ?? NO_ORDERS;
+  const live = useMemo<Live>(
+    () => ({
       lunchId: lunch?.id ?? null,
-      canHost: can('session_create') || startsParties,
+      canHost: me.permissions.includes('session_create') || startsParties,
       personal: me.org?.kind === 'personal' || startsParties || !!me.public_email,
       lunchName: lunch?.name ?? '',
       hostName: lunch?.host.name ?? me.name,
       guest,
-      place: lunch && lunch.delivery_lat != null && lunch.delivery_lng != null ? { lat: lunch.delivery_lat, lng: lunch.delivery_lng } : null,
-      invite: invited ? { id: invited, joining: join.isPending, error: joinError[invited] ?? '', join: joinInvited } : null,
-      canReopen: can('session_update'),
-      canManageMembers: can('member_update'),
-      orders: board.data?.orders ?? [],
+      place: lat !== null && lng !== null ? { lat, lng } : null,
+      invite: invited ? { id: invited, joining: join.isPending, error: joinProblem, join: stableJoin } : null,
+      canReopen: me.permissions.includes('session_update'),
+      canManageMembers: me.permissions.includes('member_update'),
+      orders,
       busy,
-    },
-  };
+    }),
+    [lunch?.id, lunch?.name, lunch?.host.name, me, startsParties, guest, lat, lng, invited, join.isPending, joinProblem, stableJoin, orders, busy],
+  );
+  const value = useMemo<Store>(
+    () => ({ ...demo, state, dispatch: stableDispatch, people, meId: me.id, now, live }),
+    [demo, state, stableDispatch, people, me.id, now, live],
+  );
+
+  // The list of lunches, or today's lunch, didn't load: say so, instead of showing "no lunch today".
+  const unloaded = lunches.isError ? lunches : lunch && board.isError && !board.data ? board : null;
+  if (unloaded?.error) return <ServerDown error={unloaded.error} onRetry={() => void unloaded.refetch()} />;
+  // isLoading, not isPending: a query switched off for this page is pending forever but never loading.
+  if (members.isLoading || lunches.isPending || settings.isLoading || (lunch && board.isPending)) return <Connecting />;
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }
-
-// The company as the screens know it, from GET /api/company/settings. Without an office location yet,
-// restaurants are still looked up from the demo's.
-function orgFrom(s: ApiCompanySettings, invites: string[], fallback: Org): Org {
-  return {
-    ...fallback,
-    name: s.name,
-    team: s.team_name || s.name,
-    emailDomain: s.email_domain,
-    autoJoin: s.auto_join,
-    restaurantMode: s.restaurant_mode,
-    radiusKm: s.radius_km,
-    addresses: s.addresses.map((a) => a.address),
-    invites,
-    office: s.office_lat !== null && s.office_lng !== null ? { lat: s.office_lat, lng: s.office_lng } : fallback.office,
-  };
-}
-

@@ -6,3 +6,9 @@ dist
 promo/.venv
 promo/audio/kokoro/
 promo/.venv-cb
+.DS_Store
+
+# Local settings: copy .env.example instead
+.env
+.env.*
+!.env.example
