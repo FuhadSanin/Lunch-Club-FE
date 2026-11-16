@@ -1,6 +1,6 @@
 # How to use Lunch Club with an AI assistant
 
-Run lunch by talking to an assistant such as Claude: start a lunch, share the link, pick dishes, lock the picks and record the order. You sign in once and press Allow. After that the assistant acts as you, with your own permissions (a member's assistant can't lock the picks).
+Run lunch by talking to an assistant such as Claude or ChatGPT: start a lunch, share the link, pick dishes, lock the picks and record the order. You sign in once and press Allow. After that the assistant acts as you, with your own permissions (a member's assistant can't lock the picks).
 
 The same steps, examples and tools are on the app's **Connect to an AI assistant** page (`#/connect`).
 
@@ -10,6 +10,7 @@ The same steps, examples and tools are on the app's **Connect to an AI assistant
 2. Add it to your assistant:
    - **Claude app or claude.ai:** Settings, Connectors, Add custom connector, name it Lunch Club, paste the address, then Add and Connect.
    - **Claude Code:** run `claude mcp add --transport http lunchclub <address>`, then type `/mcp` and choose Authenticate.
+   - **ChatGPT:** Settings, Connectors, Advanced, turn on Developer mode. Choose Create, name it Lunch Club, paste the address as the server URL, set authentication to OAuth and Create. In a new chat add Lunch Club from the + menu and press Connect. Needs a plan or workspace that allows custom connectors; menu names can differ a little.
    - **Other assistants:** any that can add a remote MCP server over HTTP: add it, paste the address, connect.
 3. The assistant opens Lunch Club in your browser. Check its name and press **Allow**.
 

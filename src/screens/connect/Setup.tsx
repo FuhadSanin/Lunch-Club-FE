@@ -63,6 +63,7 @@ export function Setup() {
               <TabsList>
                 <TabsTrigger value="claude">Claude app</TabsTrigger>
                 <TabsTrigger value="code">Claude Code</TabsTrigger>
+                <TabsTrigger value="chatgpt">ChatGPT</TabsTrigger>
                 <TabsTrigger value="other">Others</TabsTrigger>
               </TabsList>
               <TabsContent value="claude">
@@ -75,6 +76,15 @@ export function Setup() {
               <TabsContent value="code" className="grid gap-2.5">
                 <p>Run this in a terminal, then type <span className="font-mono text-[12.5px]">/mcp</span> in Claude Code and choose <Em>Authenticate</Em>.</p>
                 <Copyable label="Claude Code command" text={CLAUDE_CODE_COMMAND} />
+              </TabsContent>
+              <TabsContent value="chatgpt" className="grid gap-2.5">
+                <ol className="list-decimal pl-5">
+                  <li>Open <Em>Settings</Em>, then <Em>Connectors</Em>, then <Em>Advanced</Em>, and turn on <Em>Developer mode</Em>.</li>
+                  <li>Choose <Em>Create</Em>. Name it Lunch Club and paste the address as the server URL.</li>
+                  <li>Set authentication to <Em>OAuth</Em>, then press <Em>Create</Em>.</li>
+                  <li>In a new chat, add Lunch Club from the <Em>+</Em> menu (under More) and press <Em>Connect</Em>.</li>
+                </ol>
+                <p className="text-[13px] text-muted-foreground">Custom connectors need a ChatGPT plan or workspace that allows them, and menu names can differ a little by plan.</p>
               </TabsContent>
               <TabsContent value="other">
                 <p>Any assistant that can add a remote MCP server over HTTP works the same way: add a server or connector, paste the address, and connect. It will open Lunch Club to sign in.</p>
