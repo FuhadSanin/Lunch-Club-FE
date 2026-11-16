@@ -18,6 +18,10 @@
       "destination": "https://lunchclubbe.vercel.app/.well-known/oauth-protected-resource/mcp"
     },
     {
+      "source": "/.well-known/oauth-authorization-server",
+      "destination": "https://lunchclubbe.vercel.app/.well-known/oauth-authorization-server"
+    },
+    {
       "source": "/((?!api/|assets/|fonts/|illustrations/|photos/|promo/|robots.txt|sitemap.xml|favicon.svg).*)",
       "destination": "/index.html"
     }
