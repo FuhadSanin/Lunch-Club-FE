@@ -6,7 +6,7 @@ The same steps, examples and tools are on the app's **Connect to an AI assistant
 
 ## 1. Connect (one way: sign in)
 
-1. Open **Connect to an AI assistant** in the app and copy the server address (`https://lunchclub-mcp.vercel.app/mcp` unless your team set `VITE_MCP_URL`).
+1. Open **Connect to an AI assistant** in the app and copy the server address (`https://lunchclubfe.vercel.app/mcp` unless your team set `VITE_MCP_URL`).
 2. Add it to your assistant:
    - **Claude app or claude.ai:** Settings, Connectors, Add custom connector, name it Lunch Club, paste the address, then Add and Connect.
    - **Claude Code:** run `claude mcp add --transport http lunchclub <address>`, then type `/mcp` and choose Authenticate.

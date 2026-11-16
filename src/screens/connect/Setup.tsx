@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 // Where the Lunch Club MCP server lives: the address an AI assistant connects to.
-const MCP_URL = (import.meta.env.VITE_MCP_URL as string | undefined) || 'https://lunchclub-mcp.vercel.app/mcp';
+const MCP_URL = (import.meta.env.VITE_MCP_URL as string | undefined) || 'https://lunchclubfe.vercel.app/mcp';
 const CLAUDE_CODE_COMMAND = `claude mcp add --transport http lunchclub ${MCP_URL}`;
 
 async function copy(text: string, what: string) {
