@@ -22,7 +22,7 @@
       "destination": "https://tiffmate-api.vercel.app/.well-known/oauth-authorization-server"
     },
     {
-      "source": "/((?!api/|assets/|fonts/|illustrations/|photos/|promo/|robots.txt|sitemap.xml|favicon.svg).*)",
+      "source": "/((?!api/|assets/|fonts/|illustrations/|photos/|promo/|robots.txt|sitemap.xml|favicon.svg|googleeecb1820694b5fa0.html|googlee11ecf5879b80dc5.html).*)",
       "destination": "/index.html"
     }
   ],
