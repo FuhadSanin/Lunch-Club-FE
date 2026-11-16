@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Reveal } from './motion';
 
-// The promo film, "the story cut": the organiser's 11:58 nightmare in the dark, then Lunch Board and its
+// The promo film, "the story cut": the organiser's 11:58 nightmare in the dark, then Tiffmate and its
 // six steps in the light. Nothing is downloaded until someone presses play (the film is 7 MB).
 export default function Story() {
   const video = useRef<HTMLVideoElement>(null);
@@ -23,7 +23,7 @@ export default function Story() {
         <Reveal delay={0.08} className="lg:col-span-5">
           <p className="text-lg leading-7 text-body">
             It's 11:58. Thirty-five hungry people, one phone going round, and you're the one ordering. Two minutes on how
-            lunch stops being a nightmare.
+            ordering food stops being a nightmare.
           </p>
         </Reveal>
       </div>
@@ -39,7 +39,7 @@ export default function Story() {
               preload="none"
               playsInline
               controls={started}
-              aria-label="The Lunch Board story: a two-minute film with narration and on-screen captions"
+              aria-label="The Tiffmate story: a two-minute film with narration and on-screen captions"
               onEnded={() => setStarted(false)}
             />
             {!started && (

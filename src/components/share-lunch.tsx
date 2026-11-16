@@ -30,13 +30,13 @@ export function ShareLunch({ link, cutoff, name, label = 'Share', variant = 'out
 }) {
   const [open, setOpen] = useState(false);
   const qr = useRef<HTMLDivElement>(null);
-  const message = `${name ? `${name}: lunch` : 'Lunch'} is on. Pick yours${cutoff ? ` before ${cutoff}` : ''}: ${link}`;
+  const message = `${name ? `${name}: food party` : 'Food party'} is on. Pick yours${cutoff ? ` before ${cutoff}` : ''}: ${link}`;
   const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
 
   const slack = async () => {
     if (await copyText(message, 'Message copied for Slack', 'Paste it in your team channel.')) window.location.href = 'slack://open';
   };
-  const more = () => navigator.share({ title: 'Pick your lunch', text: message.replace(`: ${link}`, '.'), url: link }).catch(() => undefined);
+  const more = () => navigator.share({ title: 'Pick your food', text: message.replace(`: ${link}`, '.'), url: link }).catch(() => undefined);
   // The QR as a PNG, to post in a channel or print for the pantry.
   const download = () => {
     const svg = qr.current?.querySelector('svg');
@@ -61,18 +61,18 @@ export function ShareLunch({ link, cutoff, name, label = 'Share', variant = 'out
       </DialogTrigger>
       <DialogContent className="sm:max-w-[440px]">
         <DialogHeader>
-          <DialogTitle>Share {name ? `“${name}”` : "today's lunch"}</DialogTitle>
-          <DialogDescription>Scan the code or send the link. It opens Pick my lunch{cutoff ? `, open until ${cutoff}` : ''}.</DialogDescription>
+          <DialogTitle>Share {name ? `“${name}”` : "today's food party"}</DialogTitle>
+          <DialogDescription>Scan the code or send the link. It opens Pick my food{cutoff ? `, open until ${cutoff}` : ''}.</DialogDescription>
         </DialogHeader>
         <div className="grid justify-items-center gap-3">
           {/* Always dark on white, so it scans in dark mode too. */}
           <div ref={qr} className="rounded-2xl bg-white p-4 ring-1 ring-black/5">
-            <QRCodeSVG value={link} size={200} level="M" fgColor="#171717" bgColor="#ffffff" title="QR code for the lunch link" />
+            <QRCodeSVG value={link} size={200} level="M" fgColor="#171717" bgColor="#ffffff" title="QR code for the food party link" />
           </div>
           <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={download}><Icon name="download" />Download QR</Button>
         </div>
         <div className="flex gap-2">
-          <Input readOnly spellCheck={false} value={link} aria-label="Lunch link" onFocus={(e) => e.currentTarget.select()} className="h-10 font-mono text-[13px]" />
+          <Input readOnly spellCheck={false} value={link} aria-label="Food party link" onFocus={(e) => e.currentTarget.select()} className="h-10 font-mono text-[13px]" />
           <Button variant="outline" className="h-10" onClick={() => void copyText(link, 'Link copied', 'Paste it in the team chat.')}><Icon name="copy" />Copy</Button>
         </div>
         <div className={canShare ? 'grid grid-cols-3 gap-2' : 'grid grid-cols-2 gap-2'}>

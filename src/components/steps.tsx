@@ -41,7 +41,7 @@ export function StepDot({ n, state, size = 22 }: { n: number; state: StepState; 
 export function StepTracker({ canRun }: { canRun: boolean }) {
   const { states, current, progress } = useLunchSteps();
   return (
-    <ol className="grid" aria-label="Lunch steps">
+    <ol className="grid" aria-label="Food party steps">
       {STEPS.map((s, i) => {
         const st = states[s.id];
         const p = progress[s.id];
@@ -67,7 +67,7 @@ export function StepTracker({ canRun }: { canRun: boolean }) {
                   <p className="text-[13px] text-muted-foreground">{s.hint}</p>
                   {canRun && (
                     <Button asChild size="sm" className="mt-2.5">
-                      <a href={`#${s.route}`}>{s.id === 'start' ? 'Start a lunch' : `Go to ${s.label.toLowerCase()}`} <Icon name="arrow" size={13} /></a>
+                      <a href={`#${s.route}`}>{s.id === 'start' ? 'Start a food party' : `Go to ${s.label.toLowerCase()}`} <Icon name="arrow" size={13} /></a>
                     </Button>
                   )}
                 </motion.div>
@@ -113,7 +113,7 @@ export function StepPage({ id, title, sub, actions, children }: { id: StepId; ti
   useEffect(() => () => window.clearTimeout(advance.current), []);
   return (
     <>
-      <div className="mb-4 flex flex-wrap items-center gap-2" aria-label="Lunch steps">
+      <div className="mb-4 flex flex-wrap items-center gap-2" aria-label="Food party steps">
         {STEPS.map((s, i) => {
           const chip = (
             <>
@@ -136,7 +136,7 @@ export function StepPage({ id, title, sub, actions, children }: { id: StepId; ti
           <CardContent className="flex flex-col items-center gap-3 py-10 text-center">
             <StepDot n={n + 1} state="todo" size={40} />
             <p className="max-w-sm text-sm text-muted-foreground">
-              Not yet. This comes after <span className="font-medium text-foreground">{STEPS[at].label.toLowerCase()}</span>, the step the lunch is on now.
+              Not yet. This comes after <span className="font-medium text-foreground">{STEPS[at].label.toLowerCase()}</span>, the step the food party is on now.
             </p>
             <Button asChild><a href={`#${STEPS[at].route}`}>Go to {STEPS[at].label.toLowerCase()}</a></Button>
           </CardContent>

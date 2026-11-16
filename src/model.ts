@@ -20,7 +20,7 @@ export type Dish = {
   id: string;
   name: string;
   price: number; // rupees
-  veg: boolean;
+  veg?: boolean; // unknown for a local menu that does not say
   desc?: string;
   inStock?: boolean;
   photo?: string; // URL of the dish photo; screens fall back to a placeholder until menus carry one
@@ -38,6 +38,7 @@ export type Restaurant = {
   distanceKm?: number;
   photo?: string; // URL of the restaurant's photo; placeholder until set
   open?: boolean; // live restaurants only: whether Swiggy shows it open now
+  local?: boolean; // from a host's local menu: not on Swiggy, the host orders it directly
   categories: Category[];
 };
 

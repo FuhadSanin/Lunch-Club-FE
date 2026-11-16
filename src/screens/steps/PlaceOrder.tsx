@@ -231,7 +231,7 @@ export default function PlaceOrder() {
             <DialogDescription>
               {live
                 ? `This locks in ${lunch.dishes} dishes from ${lunch.cart.length} restaurants for delivery to ${session.address}. You then place each restaurant's order in Swiggy, where it adds its delivery fee and taxes.`
-                : `The bot orders ${lunch.dishes} dishes from ${lunch.cart.length} restaurants on your Swiggy account, cash on delivery, to ${session.address}. Swiggy adds its delivery fee and taxes. Orders can't be cancelled from Lunch Board.`}
+                : `The bot orders ${lunch.dishes} dishes from ${lunch.cart.length} restaurants on your Swiggy account, cash on delivery, to ${session.address}. Swiggy adds its delivery fee and taxes. Orders can't be cancelled from Tiffmate.`}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

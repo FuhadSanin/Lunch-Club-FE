@@ -17,14 +17,14 @@ export function NoLunch({ canHost }: { canHost: boolean }) {
   const lunches = useLunches(!!live);
   const last = lunches.data?.find((l) => l.status === 'delivered' || l.status === 'cancelled');
   const lastLine = last
-    ? `The last lunch, for ${lunchDay(last.cutoff_at).toLowerCase()} at ${hhmm(last.cutoff_at)}, ${last.status === 'delivered' ? 'has arrived' : 'was called off'}.`
+    ? `The last food party, for ${lunchDay(last.cutoff_at).toLowerCase()} at ${hhmm(last.cutoff_at)}, ${last.status === 'delivered' ? 'has arrived' : 'was called off'}.`
     : null;
 
   return (
     <>
       <PageTitle
-        title="No lunch running"
-        sub={canHost ? 'Start a new lunch and the team can pick from any restaurant near the office.' : 'When the host starts the next lunch, it shows up here and you can pick.'}
+        title="No food party running"
+        sub={canHost ? 'Start a new food party and the team can pick from any restaurant near the office.' : 'When the host starts the next food party, it shows up here and you can pick.'}
       />
       {live && <NotificationsPrompt />}
       <Card>
@@ -40,7 +40,7 @@ export function NoLunch({ canHost }: { canHost: boolean }) {
           </div>
           {canHost && (
             <Button asChild size="lg">
-              <a href="#/new">Start a new lunch</a>
+              <a href="#/new">Start a new food party</a>
             </Button>
           )}
         </CardContent>

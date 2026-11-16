@@ -72,11 +72,11 @@ export default function Tastes({ onStart }: { onStart: () => void }) {
   return (
     <section
       aria-labelledby="hero-title"
-      className="relative mx-auto max-w-[1200px] px-5 pt-28 pb-10 sm:px-8 sm:pt-32 md:grid md:min-h-dvh md:grid-cols-12 md:items-center md:gap-x-10 md:pt-20 md:pb-8"
+      className="relative mx-auto flex max-w-[1200px] flex-col px-5 pt-20 pb-10 sm:px-8 sm:pt-24 md:grid md:min-h-dvh md:grid-cols-12 md:items-center md:gap-x-10 md:pt-20 md:pb-8"
     >
       {/* The headline and the way in, on the left. */}
       <div className="md:col-span-6 lg:col-span-5">
-        <h1 id="hero-title" className="text-[clamp(38px,min(4.5vw,8dvh),60px)] font-semibold leading-[1.04] tracking-[-0.045em]">
+        <h1 id="hero-title" className="max-md:text-[clamp(44px,12.5vw,64px)] md:text-[clamp(38px,min(4.5vw,8dvh),60px)] font-semibold leading-[1.04] tracking-[-0.045em]">
           <WordsIn lines={['Everyone has a', 'different craving.']} accent={{ word: 'craving.', src: '/illustrations/craving.webp', width: 2240, height: 600 }} />
         </h1>
         <motion.div
@@ -99,11 +99,11 @@ export default function Tastes({ onStart }: { onStart: () => void }) {
       </div>
 
       {/* The drawing, on the right: the four people at the end of the desk, and the tiffin. */}
-      <figure ref={figure} className="mt-14 md:col-span-6 md:mt-0 lg:col-span-7">
+      <figure ref={figure} className="order-first mx-auto mb-6 w-[72%] max-w-[340px] md:order-none md:mx-0 md:mb-0 md:w-auto md:max-w-none md:col-span-6 lg:col-span-7">
         {/* The box is the cropped part of the scene. On a tablet and up it is as wide as the height left on the
             screen allows (the 200px is the top bar, the platform strip and some air), so the hero stays on one screen. */}
         <div
-          className="relative mx-auto w-full overflow-hidden md:w-[min(100%,calc((100dvh-200px)*var(--crop)))]"
+          className="relative mx-auto w-full overflow-hidden max-md:max-w-[560px] md:w-[min(100%,calc((100dvh-200px)*var(--crop)))]"
           style={{ aspectRatio: `${CROP.w} / ${SCENE.h}`, '--crop': CROP.w / SCENE.h } as React.CSSProperties}
         >
           <div className="absolute top-0 h-full" style={{ left: `${(-CROP.x / CROP.w) * 100}%`, width: `${(SCENE.w / CROP.w) * 100}%` }}>

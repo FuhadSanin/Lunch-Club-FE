@@ -7,12 +7,12 @@ export type StepId = 'start' | 'review' | 'order' | 'collect' | 'distribute' | '
 export type StepState = 'done' | 'now' | 'todo';
 
 export const STEPS: { id: StepId; route: string; label: string; hint: string; icon: string }[] = [
-  { id: 'start', route: '/new', label: 'Start lunch', hint: 'Choose the restaurants and the cutoff time.', icon: 'new' },
+  { id: 'start', route: '/new', label: 'Start food party', hint: 'Choose the restaurants and the cutoff time.', icon: 'new' },
   { id: 'review', route: '/review', label: 'Review & lock', hint: 'See what everyone picked, then lock the picks so the cart stays as it is.', icon: 'lock' },
   { id: 'order', route: '/order', label: 'Place order', hint: 'The Swiggy bot adds every dish to the cart and checks out.', icon: 'pick' },
   { id: 'collect', route: '/collect', label: 'Collect', hint: 'Mark each restaurant when its food arrives.', icon: 'check' },
   { id: 'distribute', route: '/distribute', label: 'Distribute', hint: 'Tick each person when they get their food.', icon: 'today' },
-  { id: 'finish', route: '/finish', label: 'Enjoy your meal', hint: 'Close the lunch, so the next one can start. Then eat!', icon: 'check' },
+  { id: 'finish', route: '/finish', label: 'Enjoy your meal', hint: 'Close the food party, so the next one can start. Then eat!', icon: 'check' },
 ];
 
 type Progress = { done: number; of: number };

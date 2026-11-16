@@ -12,6 +12,7 @@ import { useLunchSteps } from '@/components/steps';
 import { STEPS } from '@/lib/steps';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn, spring } from '@/lib/cn';
+import { LunchReceipt } from './LunchReceipt';
 
 // The same colour code as the board: green while people can pick, amber while the host has work to
 // do, blue once ordered, grey when it's over.
@@ -41,7 +42,7 @@ export function lunchDay(iso: string) {
 // "today's lunch", "Monday's lunch"…
 export const lunchName = (l: ApiLunch) => {
   const day = lunchDay(l.cutoff_at);
-  return /^(Today|Yesterday|Tomorrow)$/.test(day) ? `${day.toLowerCase()}'s lunch` : `the ${day} lunch`;
+  return /^(Today|Yesterday|Tomorrow)$/.test(day) ? `${day.toLowerCase()}'s food party` : `the ${day} food party`;
 };
 
 // Lunches on the API that haven't been closed yet. Empty in the demo, which replaces its one lunch.
@@ -54,12 +55,13 @@ export function useRunningLunches() {
 // Lunches already started, newest first: the running one on top with a way to close it, and the last
 // few that are over below.
 export function ExistingLunches({ show, onClose }: { show: 'running' | 'past'; onClose: (lunch: ApiLunch) => void }) {
-  const { live, state } = useStore();
+  const { live, state, meId } = useStore();
   const steps = useLunchSteps();
   const step = STEPS.find((s) => s.id === steps.current)!;
   const stepNo = STEPS.indexOf(step) + 1;
   const lunches = useLunches(!!live);
   const [showAll, setShowAll] = useState(false);
+  const [opened, setOpened] = useState<ApiLunch | null>(null);
 
   // The demo has one lunch: today's.
   const all: ApiLunch[] = live
@@ -72,12 +74,13 @@ export function ExistingLunches({ show, onClose }: { show: 'running' | 'past'; o
         created_at: new Date().toISOString(),
       }];
   const running = all.filter((l) => isActive(l));
-  const past = all.filter((l) => !isActive(l));
+  // History is the host's own record: the lunches someone else ran, or that you only joined, aren't in it.
+  const past = all.filter((l) => !isActive(l) && (!live || l.host.id === meId));
   const shownPast = showAll ? past : past.slice(0, 3);
 
   if (live && lunches.isPending) {
     return (
-      <Card className="mb-4" aria-busy="true" aria-label="Loading lunches">
+      <Card className="mb-4" aria-busy="true" aria-label="Loading food parties">
         <CardContent className="grid gap-2.5">
           {[0, 1].map((i) => <span key={i} className="h-14 animate-pulse rounded-xl bg-muted" />)}
         </CardContent>
@@ -103,11 +106,11 @@ export function ExistingLunches({ show, onClose }: { show: 'running' | 'past'; o
         <span aria-hidden="true" className={cn('size-2.5 shrink-0 rounded-full', s.dot, l.status === 'open' && 'animate-pulse')} />
         <span className="min-w-0 flex-1">
           <span className="block text-sm font-medium">
-            {lunchDay(l.cutoff_at)} · picks close {hhmm(new Date(l.cutoff_at))}
+            {l.name?.trim() ? l.name : `${lunchDay(l.cutoff_at)} · picks close ${hhmm(new Date(l.cutoff_at))}`}
             {current && live && isActive(l) && <span className="font-normal text-muted-foreground"> · today's board</span>}
           </span>
           <span className="block truncate text-[13px] text-muted-foreground">
-            Started by {l.host.name}
+            {l.name?.trim() ? `${lunchDay(l.cutoff_at)} · picks closed ${hhmm(new Date(l.cutoff_at))} · ` : ''}Started by {l.host.name}
             {current && isActive(l) && <> · now on step {stepNo}, {step.label.toLowerCase()}</>}
           </span>
         </span>
@@ -117,6 +120,7 @@ export function ExistingLunches({ show, onClose }: { show: 'running' | 'past'; o
             <Button asChild size="sm"><a href={`#${step.route}`}>Go to {step.label.toLowerCase()}</a></Button>
           )}
           {canClose && <Button size="sm" variant="outline" onClick={() => onClose(l)}>Close</Button>}
+          {live && !isActive(l) && l.host.id === meId && <Button size="sm" variant="outline" onClick={() => setOpened(l)}>See details</Button>}
         </span>
       </motion.li>
     );
@@ -124,14 +128,15 @@ export function ExistingLunches({ show, onClose }: { show: 'running' | 'past'; o
 
   const list = show === 'running' ? running : shownPast;
   if (show === 'past' && !past.length)
-    return <p className="rounded-xl border border-dashed border-input p-6 text-center text-sm text-muted-foreground">No earlier lunches yet. Finished and called-off lunches show up here.</p>;
+    return <p className="rounded-xl border border-dashed border-input p-6 text-center text-sm text-muted-foreground">No earlier food parties yet. Finished and called-off food parties show up here.</p>;
   return (
     <div className="grid gap-3">
+      <LunchReceipt lunch={opened} onOpenChange={(open) => !open && setOpened(null)} />
       <ul className="grid gap-2">
         <AnimatePresence initial={false}>{list.map(row)}</AnimatePresence>
       </ul>
       {show === 'running' && running.length > 1 && (
-        <p className="text-[13px] text-muted-foreground">Only one lunch runs at a time. Close the older ones.</p>
+        <p className="text-[13px] text-muted-foreground">Only one food party runs at a time. Close the older ones.</p>
       )}
       {show === 'past' && past.length > 3 && (
         <Button size="sm" variant="link" className="h-auto w-fit px-0" onClick={() => setShowAll(!showAll)}>
@@ -150,11 +155,11 @@ export function CloseLunchDialog({ lunch, onOpenChange }: { lunch: ApiLunch | nu
   const steps = useLunchSteps();
   const ordered = !!lunch && ORDERED.has(lunch.status);
   const cancel = useCancel();
-  const name = lunch ? lunchName(lunch) : 'this lunch';
+  const name = lunch ? lunchName(lunch) : 'this food party';
   const here = lunch?.id === live?.lunchId;
   const stepRoute = STEPS.find((s) => s.id === steps.current)?.route ?? '/';
   const done = () => {
-    toast.success('Lunch called off', { description: 'You can start the next one now.' });
+    toast.success('Food party called off', { description: 'You can start the next one now.' });
     onOpenChange(false);
   };
 
@@ -166,7 +171,7 @@ export function CloseLunchDialog({ lunch, onOpenChange }: { lunch: ApiLunch | nu
           <DialogDescription>
             {!ordered
               ? "Nothing has been ordered yet, so closing calls it off: everyone's picks are dropped and nothing is ordered. This can't be undone."
-              : 'It was ordered on Swiggy, so it ends at the last step: collect the food, hand it out, then complete the lunch in Enjoy your meal. A new party can start after that.'}
+              : 'It was ordered on Swiggy, so it ends at the last step: collect the food, hand it out, then complete the food party in Enjoy your meal. A new food party can start after that.'}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
@@ -179,7 +184,7 @@ export function CloseLunchDialog({ lunch, onOpenChange }: { lunch: ApiLunch | nu
                 lunch &&
                 cancel.mutate(lunch.id, {
                   onSuccess: done,
-                  onError: (e) => toast.error("Couldn't close the lunch", { description: e.message }),
+                  onError: (e) => toast.error("Couldn't close the food party", { description: e.message }),
                 })
               }
             >

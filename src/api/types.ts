@@ -74,7 +74,17 @@ export type ApiLunch = {
 };
 
 // A restaurant on a lunch's list, as Swiggy showed it to the host (no menu).
-export type ApiOffered = { id: string; name: string; area?: string; cuisines?: string[]; rating?: number; eta?: string; distance_km?: number; photo?: string };
+export type ApiOffered = {
+  id: string; name: string; area?: string; cuisines?: string[]; rating?: number; eta?: string; distance_km?: number; photo?: string;
+  // A host's local menu (not on Swiggy): its dishes travel with the lunch, so everyone in it sees the same menu.
+  local?: boolean;
+  items?: { id: string; name: string; price_paise: number; photo?: string; veg?: boolean | null }[];
+};
+
+// GET /api/local-menus: the menus a host keeps for restaurants that aren't on Swiggy.
+export type ApiLocalItem = { id?: string; name: string; price_paise: number; image: string; veg: boolean | null };
+export type ApiLocalMenu = { id: string; name: string; image: string; rating: number | null; distance_km: number | null; items: ApiLocalItem[]; created_at: string; updated_at: string };
+export type ApiLocalMenuInput = Omit<ApiLocalMenu, 'id' | 'created_at' | 'updated_at'>;
 
 export type ApiItem = {
   id: string;
@@ -117,10 +127,41 @@ export type ApiOrder = {
 export type ApiCart = {
   restaurant_name: string;
   restaurant_id: string;
+  local?: boolean; // a local menu: no Swiggy page, the host orders it directly
   swiggy_url: string;
   dishes: { name: string; quantity: number; people: string[] }[];
   cooking_note: string; // one "Name - food" line per person
   total_paise: number;
+};
+
+// GET /api/lunches/<id>/history: the receipt of a lunch, for the host who ran it (403 for anyone else).
+export type ApiReceipt = {
+  id: string;
+  name: string; // what the host called it; empty when they didn't
+  host: ApiPerson;
+  cutoff_at: string;
+  status: ApiLunchStatus;
+  closed_at: string | null;
+  address: string;
+  total_paise: number;
+  restaurants: {
+    name: string;
+    restaurant_id: string;
+    area: string | null;
+    cuisines: string[];
+    rating: number | string | null;
+    eta: string | null;
+    distance_km: number | null;
+    photo: string | null;
+    order: { status: ApiOrderStatus; platform_order_id: string; placed_at: string | null } | null;
+    total_paise: number;
+    dishes: { dish_name: string; price_paise: number; quantity: number; people: string[] }[];
+  }[];
+  people: {
+    user: ApiPerson;
+    owes_paise: number; // what they owe the host
+    items: { restaurant_name: string; dish_name: string; quantity: number; price_paise: number; note: string }[];
+  }[];
 };
 
 // GET /api/lunches/<id>: the full board.

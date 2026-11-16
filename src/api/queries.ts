@@ -1,6 +1,6 @@
 import { QueryClient, keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from './client';
-import type { ApiOAuthDecision, ApiOAuthRequest, ApiConnection, ApiNotifications, ApiPlace, ApiPlaceSuggestion, ApiAddress, ApiBoard, ApiBotStatus, ApiCompanySettings, ApiDish, ApiInvite, ApiItemInput, ApiLunch, ApiMe, ApiMenu, ApiOffered, ApiOrg, ApiPerson, ApiRestaurant, ApiRole, ApiUser } from './types';
+import type { ApiOAuthDecision, ApiOAuthRequest, ApiConnection, ApiLocalMenu, ApiLocalMenuInput, ApiReceipt, ApiNotifications, ApiPlace, ApiPlaceSuggestion, ApiAddress, ApiBoard, ApiBotStatus, ApiCompanySettings, ApiDish, ApiInvite, ApiItemInput, ApiLunch, ApiMe, ApiMenu, ApiOffered, ApiOrg, ApiPerson, ApiRestaurant, ApiRole, ApiUser } from './types';
 import type { TickKind } from './types';
 
 export const queryClient = new QueryClient({
@@ -62,6 +62,31 @@ export const useLunches = (enabled = true) =>
     // lunch the list doesn't change except through the actions here, which refresh it themselves.
     refetchInterval: (q) => (q.state.data && !q.state.data.some((l) => MOVING.has(l.status)) ? 30_000 : false),
   });
+
+// The host's local menus: restaurants that aren't on Swiggy, with their dishes. Added by hand, or by the host's AI assistant.
+export const useLocalMenus = (enabled = true) =>
+  useQuery({ queryKey: ['local-menus'], queryFn: () => api<ApiLocalMenu[]>('local-menus'), enabled, staleTime: 5_000, refetchOnWindowFocus: true, refetchInterval: 10_000 });
+
+export function useSaveLocalMenu() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { id?: string; menu: ApiLocalMenuInput }) =>
+      v.id ? api<ApiLocalMenu>(`local-menus/${v.id}`, { method: 'PUT', body: v.menu }) : api<ApiLocalMenu>('local-menus', { method: 'POST', body: v.menu }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['local-menus'] }),
+  });
+}
+
+export function useDeleteLocalMenu() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api<void>(`local-menus/${id}`, { method: 'DELETE' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['local-menus'] }),
+  });
+}
+
+// The receipt of a finished lunch: only its host can open it.
+export const useReceipt = (id: string | null) =>
+  useQuery({ queryKey: ['receipt', id], queryFn: () => api<ApiReceipt>(`lunches/${id}/history`), enabled: !!id, retry: false, staleTime: 60_000 });
 
 export const useBoard = (id: string | undefined) =>
   useQuery({
@@ -141,7 +166,7 @@ function useBoardAction<V>(request: (v: V) => Promise<ApiBoard>, { refetchLunche
 }
 
 export const useStartLunch = () =>
-  useBoardAction((v: { cutoff_at: string; address: { address: string; lat?: number; lng?: number }; name?: string; offered_restaurants?: ApiOffered[] }) =>
+  useBoardAction((v: { cutoff_at: string; address: { address: string; lat?: number; lng?: number }; name?: string; offered_restaurants?: ApiOffered[]; local_menu_ids?: string[] }) =>
     api<ApiBoard>('lunches', { method: 'POST', body: v }));
 
 // The host stops (or allows again) new people joining with the lunch's link. People already in it stay.

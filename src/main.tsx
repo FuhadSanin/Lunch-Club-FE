@@ -27,7 +27,8 @@ createRoot(document.getElementById('root')!).render(
         </TooltipProvider>
       </StoreProvider>
     </MotionConfig>
-    {import.meta.env.DEV && <ReactQueryDevtools buttonPosition="bottom-right" />}
+    {/* The query inspector floats over the page's own buttons; add ?devtools to the address to open it while developing. */}
+    {import.meta.env.DEV && new URLSearchParams(window.location.search).has('devtools') && <ReactQueryDevtools buttonPosition="bottom-right" />}
     </QueryClientProvider>
   </StrictMode>,
 );

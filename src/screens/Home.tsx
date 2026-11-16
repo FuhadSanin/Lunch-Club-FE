@@ -56,7 +56,7 @@ export default function Home() {
         ? 'The order bot is placing the order on Swiggy now.'
         : session.status === 'placed'
           ? `Ordered on Swiggy at ${session.bot.at(-1)?.at ?? DEMO_NOW}. Food is on its way.`
-          : 'Lunch has arrived. The host is handing it out.';
+          : 'The food has arrived. The host is handing it out.';
 
   const statusOf = (id: string): PickStatus =>
     picks[id]?.skipped ? 'skipped' : picks[id]?.items.length ? 'picked' : 'waiting';
@@ -92,7 +92,7 @@ export default function Home() {
             {isOpen && <ShareLunch link={lunchLink(live?.lunchId)} cutoff={closesAt} name={live?.lunchName} />}
             {isOpen && (
               <Button asChild>
-                <a href="#/pick">{mine?.done ? 'See my order' : mine?.items.length ? 'Finish my order' : 'Pick my lunch'}</a>
+                <a href="#/pick">{mine?.done ? 'See my order' : mine?.items.length ? 'Finish my order' : 'Pick my food'}</a>
               </Button>
             )}
           </>
@@ -240,7 +240,7 @@ export default function Home() {
         <div className="grid content-start gap-4 lg:col-span-4">
           <Card aria-labelledby="steps-title">
             <CardHeader>
-              <CardTitle id="steps-title">Lunch steps</CardTitle>
+              <CardTitle id="steps-title">Food party steps</CardTitle>
               <CardAction><span className="text-xs text-muted-foreground num">{steps.states ? Object.values(steps.states).filter((v) => v === 'done').length : 0} of {STEPS.length} done</span></CardAction>
             </CardHeader>
             <CardContent><StepTracker canRun={state.role === 'host'} /></CardContent>
@@ -332,12 +332,12 @@ function NowBanner() {
   const step = STEPS[n];
   const host = state.role === 'host';
   const forTeam: Record<string, string> = {
-    start: 'No lunch is running.',
-    review: 'Picks are open. Pick your lunch and complete your order before the cutoff.',
+    start: 'No food party is running.',
+    review: 'Picks are open. Pick your food and complete your order before the cutoff.',
     order: 'Picks are locked. The host is placing the order on Swiggy.',
     collect: 'The order is placed. Food is on its way.',
-    distribute: 'Lunch has arrived. Collect yours from the host.',
-    finish: 'Everyone has their lunch.',
+    distribute: 'The food has arrived. Collect yours from the host.',
+    finish: 'Everyone has their food.',
   };
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={spring} className="mb-4">
@@ -350,7 +350,7 @@ function NowBanner() {
           </div>
           {host && (
             <Button asChild variant="secondary" size="sm" className="max-sm:w-full">
-              <a href={`#${step.route}`}>{current === 'start' ? 'Start a lunch' : `Go to ${step.label.toLowerCase()}`}</a>
+              <a href={`#${step.route}`}>{current === 'start' ? 'Start a food party' : `Go to ${step.label.toLowerCase()}`}</a>
             </Button>
           )}
         </CardContent>

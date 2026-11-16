@@ -61,7 +61,7 @@ export function messageOf(status: number, body: unknown): string {
   if (status === 409) return "That can't be done right now. Refresh and try again.";
   if (status === 413) return "That's too much to send at once. Try with less.";
   if (status === 429) return "That's a lot of requests at once. Wait a moment and try again.";
-  if (status >= 500) return "The lunch server had a problem. Try again in a minute.";
+  if (status >= 500) return "The Tiffmate server had a problem. Try again in a minute.";
   return "That didn't work. Check what you entered and try again.";
 }
 
@@ -84,7 +84,7 @@ export async function api<T>(path: string, { method = 'GET', body, params, signa
     });
   } catch (error) {
     if ((error as Error).name === 'AbortError') throw error;
-    throw new ApiError(0, "Can't reach the lunch server. Check your connection and try again.");
+    throw new ApiError(0, "Can't reach the Tiffmate server. Check your connection and try again.");
   }
   if (response.status === 204) return undefined as T;
   const data = await response.json().catch(() => undefined);

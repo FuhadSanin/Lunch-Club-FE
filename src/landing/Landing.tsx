@@ -1,5 +1,5 @@
 import { motion, useMotionValueEvent, useScroll } from 'motion/react';
-import { useState, type ReactNode } from 'react';
+import { useLayoutEffect, useState, type ReactNode } from 'react';
 import { useSignIn } from '../auth';
 import { useLunch, useStore } from '../store';
 import { dishById } from '@/data/catalog';
@@ -10,15 +10,18 @@ import { Label } from '../components/ui/label';
 import { ThemeToggle } from '../components/theme';
 import { cn, easeOut } from '../lib/cn';
 import LiveDemo from './LiveDemo';
+import { dropPrerender } from '../lib/prerender';
 import HowItRuns from './HowItRuns';
 import Story from './Story';
 import Faq from './Faq';
+import Trending from './Trending';
 import Tastes from './Tastes';
 import { Reveal } from './motion';
 
 const LINKS = [
   { href: '#how', label: 'How it works' },
   { href: '#story', label: 'The story' },
+  { href: '#trending', label: 'Trending' },
   { href: '#hosts', label: 'The board' },
 ];
 
@@ -39,6 +42,7 @@ function PageGrid() {
 export default function Landing() {
   const signIn = useSignIn();
   const start = () => void signIn();
+  useLayoutEffect(() => dropPrerender(), []);
 
   return (
     <div className="relative isolate min-h-dvh overflow-x-clip bg-canvas text-base leading-[1.6]">
@@ -51,6 +55,7 @@ export default function Landing() {
         <Tastes onStart={start} />
         <HowItRuns />
         <Story />
+        <Trending />
         <ForHosts />
         <Faq onStart={start} />
         <Closing onStart={start} />
@@ -78,7 +83,7 @@ function Nav({ onStart }: { onStart: () => void }) {
       <nav aria-label="Main" className="mx-auto flex h-16 max-w-[1200px] items-center gap-6 px-5 sm:px-8">
         <a href="#hero-title" onClick={(e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="flex items-center gap-2.5 whitespace-nowrap font-semibold tracking-[-0.02em]">
           <Mark size={26} />
-          Lunch Board
+          Tiffmate
         </a>
         <ul className="ml-4 hidden items-center gap-1 lg:flex">
           {LINKS.map((l) => (
@@ -92,7 +97,7 @@ function Nav({ onStart }: { onStart: () => void }) {
         <div className="ml-auto flex items-center gap-2">
           <ThemeToggle />
           <Button size="sm" variant="ghost" onClick={onStart} className="hidden sm:inline-flex">Sign in</Button>
-          <Button size="sm" onClick={onStart}>Start a lunch</Button>
+          <Button size="sm" onClick={onStart}>Start a food party</Button>
         </div>
       </nav>
     </motion.header>
@@ -140,7 +145,7 @@ function ForHosts() {
       {/* One section: the board to try, then what it does for the host, in the same grid. */}
       <LiveDemo className="mt-16" />
       <div className="mt-5 grid gap-5 md:mt-6 md:grid-cols-6 md:gap-6">
-        <Tile className="md:col-span-4" title="Names on every bag." body="Each person's name goes in the restaurant's note, so lunch comes labelled and nobody opens the wrong box.">
+        <Tile className="md:col-span-4" title="Names on every bag." body="Each person's name goes in the restaurant's note, so the food comes labelled and nobody opens the wrong box.">
           {firstGroup && (
             <div data-ui className="rounded-2xl bg-canvas p-5 shadow-card">
               <div className="flex items-baseline justify-between text-sm">
@@ -248,18 +253,7 @@ function Footer({ onStart }: { onStart: () => void }) {
             ))}
             <li><Button variant="link" onClick={onStart} className="h-auto p-0 font-normal text-body hover:text-ink">Sign in</Button></li>
           </ul>
-          <p className="max-w-md text-[13px] leading-5 text-mute sm:text-right">
-            Demo build with sample people and picks. Menus come from saved Swiggy listings. Illustrations drawn for Lunch Board. Set in Geist (SIL Open Font License).
-          </p>
         </div>
-        <p className="mt-6 text-[13px] leading-5 text-body">
-          Restaurant photos via Wikimedia Commons. KFC: <a className="underline underline-offset-2 hover:text-ink" href="https://commons.wikimedia.org/wiki/File:Looking_down_into_KFC_bucket_of_fried_chicken_(34956588243).jpg">“Looking down into KFC bucket of fried chicken (34956588243)”</a> by Willis Lam, <a className="underline underline-offset-2 hover:text-ink" href="https://creativecommons.org/licenses/by-sa/2.0">CC BY-SA 2.0</a>;{' '}
-          Burger King: <a className="underline underline-offset-2 hover:text-ink" href="https://commons.wikimedia.org/wiki/File:WHOPPER_with_Cheese,_at_Burger_King_(2014.05.04).jpg">“WHOPPER with Cheese, at Burger King (2014.05.04)”</a> by Lombroso, <a className="underline underline-offset-2 hover:text-ink" href="https://creativecommons.org/licenses/by-sa/3.0">CC BY-SA 3.0</a>;{' '}
-          Hotel Saravana Bhavan: <a className="underline underline-offset-2 hover:text-ink" href="https://commons.wikimedia.org/wiki/File:Saravana_Bhavan.jpg">“Saravana Bhavan”</a> by User:Marcus334, <a className="underline underline-offset-2 hover:text-ink" href="https://creativecommons.org/licenses/by-sa/2.0">CC BY-SA 2.0</a>;{' '}
-          Baskin Robbins: <a className="underline underline-offset-2 hover:text-ink" href="https://commons.wikimedia.org/wiki/File:Ice_cream_flavors_at_a_Baskin-Robbins_ice_cream_parlor_in_Ooltewah,_Tennessee.jpg">“Ice cream flavors at a Baskin-Robbins ice cream parlor in Ooltewah, Tennessee”</a> by Harrison Keely, <a className="underline underline-offset-2 hover:text-ink" href="https://creativecommons.org/licenses/by/4.0">CC BY 4.0</a>;{' '}
-          Domino's: <a className="underline underline-offset-2 hover:text-ink" href="https://commons.wikimedia.org/wiki/File:Domino%27s_Pizza_in_India.jpg">“Domino's Pizza in India”</a> by Gannu03, <a className="underline underline-offset-2 hover:text-ink" href="https://creativecommons.org/licenses/by-sa/4.0">CC BY-SA 4.0</a>;{' '}
-          McDonald's: <a className="underline underline-offset-2 hover:text-ink" href="https://commons.wikimedia.org/wiki/File:McDonald%27s_India_(32331353336).jpg">“McDonald's India (32331353336)”</a> by Martin Lewison from Forest Hills, NY, U.S.A., <a className="underline underline-offset-2 hover:text-ink" href="https://creativecommons.org/licenses/by-sa/2.0">CC BY-SA 2.0</a>.
-        </p>
         <motion.p
           aria-hidden="true"
           className="mt-14 select-none text-[clamp(56px,15.5vw,200px)] font-semibold leading-[0.9] tracking-[-0.06em] text-ink"
@@ -268,7 +262,7 @@ function Footer({ onStart }: { onStart: () => void }) {
           viewport={{ once: true }}
           transition={{ duration: 1.2, ease: easeOut }}
         >
-          Lunch Board
+          Tiffmate
         </motion.p>
       </div>
     </footer>

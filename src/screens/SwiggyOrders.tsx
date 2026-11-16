@@ -217,11 +217,15 @@ function CartToAdd({ cart, step }: { cart: ApiCart; step: number }) {
           {cart.restaurant_name}
           <span className="ml-1.5 text-[13px] font-normal text-muted-foreground num">{rupees(cart.total_paise / 100)}</span>
         </span>
-        <Button asChild size="sm" variant="outline" className="h-8">
-          <a href={cart.swiggy_url} target="_blank" rel="noopener noreferrer">
-            {cart.restaurant_id ? 'Open in Swiggy' : 'Find in Swiggy'}
-          </a>
-        </Button>
+        {cart.local ? (
+          <Badge variant="warning">Local menu: order it directly</Badge>
+        ) : (
+          <Button asChild size="sm" variant="outline" className="h-8">
+            <a href={cart.swiggy_url} target="_blank" rel="noopener noreferrer">
+              {cart.restaurant_id ? 'Open in Swiggy' : 'Find in Swiggy'}
+            </a>
+          </Button>
+        )}
       </div>
       <ul className="mt-2 grid gap-1">
         {cart.dishes.map((d) => (

@@ -1,4 +1,4 @@
-# Lunch Board — web app (demo build)
+# Tiffmate — web app (demo build)
 
 The React + TypeScript front end from the architecture doc: team members pick lunch from several
 restaurants, the host confirms one Swiggy order, and everyone watches a live board. It runs in the
@@ -136,8 +136,8 @@ rings) and Apple-style motion from the `motion` library (springs, scroll-linked 
 control is a shadcn/ui component (Radix underneath, `components.json`, added with `npx shadcn add`) in
 `src/components/ui/`: Button, Card, Badge, Input, Textarea, Label, Field, Select, Switch, Checkbox,
 Slider, Tabs, ToggleGroup, Dialog, Tooltip, Separator, Avatar and Sonner toasts. Their colours
-(`background`, `primary`, `muted`...) are mapped onto the Lunch Board tokens in `index.css`, and the
-button, badge and card files carry Lunch Board's pill shape and status colours. `segmented.tsx` adds the
+(`background`, `primary`, `muted`...) are mapped onto the Tiffmate tokens in `index.css`, and the
+button, badge and card files carry Tiffmate's pill shape and status colours. `segmented.tsx` adds the
 sliding pill to shadcn's ToggleGroup and Tabs. Signed out, the app opens on the landing page in
 `src/landing/`; "Continue with Google" or "Put it on the board" signs in to the demo.
 
@@ -165,10 +165,26 @@ sliding pill to shadcn's ToggleGroup and Tabs. Signed out, the app opens on the 
   to redraw the PNGs. The bubbles follow today's picks; the positions in `src/landing/Tastes.tsx` match
   the scene in the script. The project skill `.claude/skills/print-illustration` describes the style
   and how to draw new illustrations in it.
+- **Search and sharing** (`index.html`, `vite.config.ts`, `public/`). The built page carries its own SEO in its HTML: a title and
+  description, canonical and hreflang, Open Graph and Twitter tags with a 1200 x 630 image (`public/og.png`), JSON-LD
+  (WebSite, Organization, WebApplication with its features, two VideoObjects, and the FAQ from `src/landing/faq-data.ts`), icons and
+  a web manifest, a sitemap with the image and both films, and a **pre-rendered copy of the landing page** (`src/landing/prerendered.html`,
+  injected at build time as `#prerender`, removed by the app the moment the real page is drawn, never shown to someone signed in).
+  Run `npm run prerender` (needs Google Chrome) after the landing page's words or layout change, then commit the file it writes.
+- **Local menu** (`src/screens/LocalMenus.tsx`, form in `src/screens/local-menu/`). A host keeps menus for restaurants that
+  aren't on Swiggy. The chat way (an AI assistant saves a menu from a photo, through the `add_local_menu` tool) is on
+  only when an assistant is connected; the manual form is always there, with the required fields (restaurant name,
+  each dish's name and price) in red. Start party has a Local menu section to offer them; the menu travels with the
+  party, so everyone sees the same dishes, and picking one shows a Local menu badge. Pictures are shrunk in the browser
+  (`src/lib/image.ts`) and kept with the menu.
+- **The MCP film** (`promo/mcp.html`): what you can do when an AI chat is connected, with one example (friends at a
+  restaurant photograph the menu, the chat starts a food party, the link goes round). `node promo/build-mcp.mjs` records
+  the narration and writes the timeline, `node promo/audio/mix-mcp.mjs` mixes the sound, `node promo/capture.mjs mcp.html
+  <dir>` renders the frames; credits for the photos are in `docs/credits.md`.
 - **Connect to an AI assistant** (a how-to-use guide for people is in `docs/connect-ai-assistant.md`; code in `src/screens/Connect.tsx`, parts in `src/screens/connect/`). There is one way to
   connect: the assistant signs in (it opens `#/authorize/<id>`, the person presses Allow), so there are no tokens
   to make or copy. The page shows the three steps, the assistants that are connected (Disconnect ends the access
-  token and the refresh token behind it), four examples to say, and the 23 tools. The tools and examples are plain
+  token and the refresh token behind it), four examples to say, and the 26 tools. The tools and examples are plain
   data (`assistant-tools.ts` mirrors `mcp_server/server.py` in lunch-backend; `what-to-say.ts` holds the examples and
   a test checks they only use tools that exist). The example pictures are real screens of the app in demo mode,
   light and dark, in `public/connect/`: redo them with `npm run dev` (no API) and `node scripts/connect-shots.mjs`

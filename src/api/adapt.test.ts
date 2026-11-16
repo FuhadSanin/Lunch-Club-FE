@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { currentLunch, cutoffAt, isActive, orgFrom, picksFrom, ticksFrom, toOffered } from './adapt';
+import { currentLunch, cutoffAt, fromOffered, isActive, isLocalId, orgFrom, picksFrom, ticksFrom, toOffered } from './adapt';
 import type { ApiBoard, ApiCompanySettings, ApiItem, ApiLunch } from './types';
 import { DEMO_ORG } from '@/data/demo';
 import { RESTAURANTS } from '@/data/menus';
@@ -134,5 +134,30 @@ describe('toOffered', () => {
     const offered = toOffered({ id: '9', name: 'Paragon', distanceKm: 1.2345, photo: 'https://x.test/a (1).jpg', categories: [] });
 
     expect(offered).toEqual({ id: '9', name: 'Paragon', distance_km: 1.23, photo: 'https://x.test/a%20(1).jpg' });
+  });
+});
+
+describe('a local menu offered in a lunch', () => {
+  const offered = { id: 'local-3f2a', name: "Amma's Mess", local: true, rating: 4.3, distance_km: 1.4, items: [
+    { id: 'a1', name: 'Meals', price_paise: 9000, photo: '', veg: true },
+    { id: 'a2', name: 'Fish fry', price_paise: 15050, veg: null },
+  ] };
+
+  it('brings its dishes, in rupees, and is marked local', () => {
+    const r = fromOffered(offered);
+    expect(r.local).toBe(true);
+    expect(r.categories[0].dishes.map((d) => [d.id, d.price])).toEqual([['local-3f2a:a1', 90], ['local-3f2a:a2', 150.5]]);
+  });
+
+  it('does not claim a dish is veg or not when the menu does not say', () => {
+    const [meals, fish] = fromOffered(offered).categories[0].dishes;
+    expect(meals.veg).toBe(true);
+    expect(fish.veg).toBeUndefined();
+  });
+
+  it('a Swiggy restaurant has no local mark', () => {
+    expect(fromOffered({ id: '9', name: 'Paragon' }).local).toBeUndefined();
+    expect(isLocalId('local-3f2a')).toBe(true);
+    expect(isLocalId('9')).toBe(false);
   });
 });

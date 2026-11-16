@@ -86,10 +86,10 @@ export default function LiveDemo({ className }: { className?: string }) {
         animate={{ opacity: 1 }}
         transition={{ duration: 1.2, delay: 0.7 }}
       >
-        <Card data-ui className="gap-0 overflow-hidden rounded-3xl py-0 shadow-modal" aria-label="Today's lunch: pick a dish and watch it land in the team's cart">
+        <Card data-ui className="gap-0 overflow-hidden rounded-3xl py-0 shadow-modal" aria-label="Today's food party: pick a dish and watch it land in the team's cart">
           <div className="flex items-center gap-3 border-b px-5 py-3.5">
             <Mark size={22} />
-            <span className="text-sm font-semibold">Today's lunch</span>
+            <span className="text-sm font-semibold">Today's food party</span>
             <span className="hidden text-sm text-muted-foreground sm:inline">{state.org.team}</span>
             <div className="relative ml-4 hidden h-5 min-w-0 flex-1 overflow-hidden md:block" aria-live="polite">
               <AnimatePresence mode="popLayout" initial={false}>
@@ -233,7 +233,7 @@ export default function LiveDemo({ className }: { className?: string }) {
                   {onBoard ? <><Icon name="check" size={16} /> On the board</> : saved ? 'Update my pick' : 'Put it on the board'}
                 </Button>
                 <p className="mt-2 text-center text-xs text-muted-foreground">
-                  {!open ? 'Picks are closed for the demo lunch. ' : saved ? `Saved for the ${state.session.cutoff} cutoff. ` : `Saves your pick for the ${state.session.cutoff} cutoff. `}
+                  {!open ? 'Picks are closed for the demo food party. ' : saved ? `Saved for the ${state.session.cutoff} cutoff. ` : `Saves your pick for the ${state.session.cutoff} cutoff. `}
                   <button type="button" onClick={openBoard} className="font-medium text-foreground underline-offset-2 hover:underline">Open the board</button>
                 </p>
               </div>

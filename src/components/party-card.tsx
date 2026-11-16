@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { CloseLunchDialog, useRunningLunches } from '@/screens/ExistingLunches';
 import { useStore } from '@/store';
 
-const nameOf = (l: ApiLunch) => l.name || `${l.host.name.split(' ')[0]}'s party`;
+const nameOf = (l: ApiLunch) => l.name || `${l.host.name.split(' ')[0]}'s food party`;
 const STATUS: Record<string, string> = { open: 'Picking', locked: 'Locked', confirmed: 'Ordering', placed: 'On its way', delivered: 'Arrived' };
 const ORDERED = new Set(['confirmed', 'placed', 'delivered']);
 
@@ -30,16 +30,16 @@ export function ExitParty({ lunch, size = 'sm', className }: { lunch: ApiLunch; 
     leave.mutate(lunch.id, {
       onSuccess: () => {
         setLeaving(false);
-        toast.success(`You left “${nameOf(lunch)}”`, { description: 'You can start your own party now.' });
+        toast.success(`You left “${nameOf(lunch)}”`, { description: 'You can start your own food party now.' });
         window.location.hash = '#/new';
       },
-      onError: (e) => toast.error("Couldn't leave the party", { description: e.message }),
+      onError: (e) => toast.error("Couldn't leave the food party", { description: e.message }),
     });
 
   return (
     <>
       <Button type="button" variant="outline" size={size} className={className} onClick={() => (lunch.joined ? setLeaving(true) : setClosing(lunch))}>
-        {lunch.joined ? 'Exit party' : ORDERED.has(lunch.status) ? 'Finish party' : 'Close party'}
+        {lunch.joined ? 'Exit food party' : ORDERED.has(lunch.status) ? 'Finish food party' : 'Close food party'}
       </Button>
       <CloseLunchDialog lunch={closing} onOpenChange={(open) => !open && setClosing(null)} />
       <Dialog open={leaving} onOpenChange={setLeaving}>
@@ -47,12 +47,12 @@ export function ExitParty({ lunch, size = 'sm', className }: { lunch: ApiLunch; 
           <DialogHeader>
             <DialogTitle>Exit “{nameOf(lunch)}”?</DialogTitle>
             <DialogDescription>
-              Your picks in this party are dropped. While picks are still open you can join again with its link.
+              Your picks in this food party are dropped. While picks are still open you can join again with its link.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setLeaving(false)}>Stay</Button>
-            <Button variant="destructive" onClick={confirmLeave} disabled={leave.isPending}>{leave.isPending ? 'Leaving…' : 'Exit party'}</Button>
+            <Button variant="destructive" onClick={confirmLeave} disabled={leave.isPending}>{leave.isPending ? 'Leaving…' : 'Exit food party'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -67,7 +67,7 @@ export function ActivePartyCard({ lunch, onNavigate }: { lunch: ApiLunch; onNavi
       <div className="min-w-0">
         <div className="flex items-center gap-1.5 text-[11px] font-medium tracking-wide text-mute uppercase">
           <span className="size-1.5 rounded-full bg-[#12a150]" aria-hidden="true" />
-          Active party
+          Active food party
         </div>
         <div className="mt-1 truncate text-sm font-semibold">{nameOf(lunch)}</div>
         <div className="truncate text-xs text-mute">

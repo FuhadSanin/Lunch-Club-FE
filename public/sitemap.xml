@@ -1,4 +1,26 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://lunchclubfe.vercel.app/</loc><changefreq>monthly</changefreq><priority>1.0</priority></url>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1" xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">
+  <url>
+    <loc>https://tiffmate.vercel.app/</loc>
+    <lastmod>2026-11-16</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>1.0</priority>
+    <image:image><image:loc>https://tiffmate.vercel.app/og.png</image:loc><image:title>Tiffmate: group food ordering</image:title></image:image>
+    <video:video>
+      <video:thumbnail_loc>https://tiffmate.vercel.app/promo/mcp-poster.jpg</video:thumbnail_loc>
+      <video:title>Tiffmate with your AI chat</video:title>
+      <video:description>Friends photograph a restaurant's paper menu, their AI chat starts a food party with Tiffmate, and everyone adds their own dish from the shared link.</video:description>
+      <video:content_loc>https://tiffmate.vercel.app/promo/mcp.mp4</video:content_loc>
+      <video:duration>51</video:duration>
+      <video:publication_date>2026-11-16</video:publication_date>
+    </video:video>
+    <video:video>
+      <video:thumbnail_loc>https://tiffmate.vercel.app/promo/story-poster.jpg</video:thumbnail_loc>
+      <video:title>The Tiffmate story</video:title>
+      <video:description>Ordering food for 35 people with one phone going round, and how Tiffmate turns it into six steps.</video:description>
+      <video:content_loc>https://tiffmate.vercel.app/promo/story.mp4</video:content_loc>
+      <video:duration>116</video:duration>
+      <video:publication_date>2026-11-16</video:publication_date>
+    </video:video>
+  </url>
 </urlset>

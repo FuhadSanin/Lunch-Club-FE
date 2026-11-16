@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "test": "vitest run",
-    "art": "node scripts/art/lunch-line.mjs --png && node scripts/art/tiffin.mjs --png && node scripts/art/craving.mjs --png"
+    "art": "node scripts/art/lunch-line.mjs --png && node scripts/art/tiffin.mjs --png && node scripts/art/craving.mjs --png",
+    "prerender": "node scripts/prerender.mjs"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",

@@ -43,14 +43,15 @@ export function RestaurantMenu({ restaurant, onTodaysList, categories, load, veg
         <FoodPhoto size={64} src={restaurant.photo} className="rounded-2xl" />
         <div className="min-w-0 flex-1">
           <h2 id="menu-title" className="text-2xl font-semibold tracking-[-0.035em]">{restaurant.name}</h2>
-          <p className="mt-0.5 text-[13px] text-muted-foreground">{restaurant.cuisines?.join(', ') || 'Dishes the team has ordered here before'}</p>
+          <p className="mt-0.5 text-[13px] text-muted-foreground">{restaurant.cuisines?.join(', ') || (restaurant.local ? 'Saved by the host' : 'Dishes the team has ordered here before')}</p>
           <p className="mt-1.5 flex flex-wrap items-center gap-2 text-[13px] text-muted-foreground num">
             <Rating value={restaurant.rating} />
             {[restaurant.eta, restaurant.distanceKm !== undefined && `${restaurant.distanceKm} km away`].filter(Boolean).map((t) => (
               <span key={String(t)} className="before:mr-2 before:content-['·']">{t}</span>
             ))}
           </p>
-          {!onTodaysList && (
+          {restaurant.local && <Badge variant="warning" className="mt-2">Local menu: not on Swiggy, the host orders it directly</Badge>}
+          {!onTodaysList && !restaurant.local && (
             <Badge variant="secondary" className="mt-2">Not on today's list: it joins the same cart</Badge>
           )}
         </div>

@@ -23,11 +23,12 @@ export function RestaurantCard({ restaurant: r, inPick, onOpen }: { restaurant: 
         <span className="absolute inset-x-2 top-2 flex justify-between gap-2">
           {inPick > 0 ? <Badge variant="info" className="shadow-card">{inPick} in your pick</Badge> : <span />}
           {r.open === false && <Badge variant="secondary" className="shadow-card">Closed now</Badge>}
+          {r.local && <Badge variant="warning" className="shadow-card">Local menu</Badge>}
         </span>
       </span>
       <span className="grid gap-0.5 p-3.5">
         <span className="truncate text-[15px] font-semibold tracking-[-0.01em]">{r.name}</span>
-        <span className="truncate text-[13px] text-muted-foreground">{r.cuisines?.join(', ') || 'Dishes the team has ordered here before'}</span>
+        <span className="truncate text-[13px] text-muted-foreground">{r.cuisines?.join(', ') || (r.local ? 'Not on Swiggy: the host orders it directly' : 'Dishes the team has ordered here before')}</span>
         {r.rating ? <Rating value={r.rating} size={13} className="mt-1.5 text-[13px]" /> : null}
         {facts.length > 0 && <span className="truncate text-xs text-muted-foreground num">{facts.join(' · ')}</span>}
       </span>

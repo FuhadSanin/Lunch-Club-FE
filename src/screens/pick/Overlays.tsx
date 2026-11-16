@@ -85,8 +85,8 @@ export function LockedOver({ status, mine, total }: { status: SessionStatus; min
       : status === 'placing'
         ? 'The host confirmed the cart. The Swiggy order is going out now.'
         : status === 'placed'
-          ? 'Lunch is on its way. Your name is on your food.'
-          : 'Lunch has arrived. Collect yours from the host.';
+          ? 'Food party is on its way. Your name is on your food.'
+          : 'The food has arrived. Collect yours from the host.';
   return (
     <motion.div
       className="absolute inset-0 z-20 rounded-2xl bg-background/30 backdrop-blur-[6px]"
@@ -145,7 +145,7 @@ export const ORDER_CHECK = 0.6;
 
 // Once the host has placed the order: a green check draws itself, then what went out.
 function OrderedScene({ status, orderRef, people, dishes, total }: { status: SessionStatus; orderRef: string | null; people: number; dishes: number; total: number }) {
-  const title = status === 'placing' ? 'Order going out' : status === 'delivered' ? 'Lunch has arrived' : 'Order placed';
+  const title = status === 'placing' ? 'Order going out' : status === 'delivered' ? 'The food has arrived' : 'Order placed';
   return (
     <div className="grid justify-items-center gap-3 py-4 text-center">
       <motion.div

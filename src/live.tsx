@@ -14,7 +14,7 @@ import { ApiError } from '@/api/client';
 import { isDemoPreview } from '@/auth';
 import { useLiveBoard } from '@/lib/live-board';
 import {
-  HOST_PERMISSIONS, STATUS, currentLunch, cutoffAt, firstName, fromOffered, hhmm, isActive, localDate, orgFrom, picksFrom, ticksFrom, toOffered, toPerson,
+  HOST_PERMISSIONS, STATUS, currentLunch, cutoffAt, firstName, fromOffered, hhmm, isActive, isLocalId, localDate, orgFrom, picksFrom, ticksFrom, toOffered, toPerson,
 } from '@/api/adapt';
 import type { ApiItemInput, ApiMe, ApiOrder, ApiPermission, ApiPerson, TickKind } from '@/api/types';
 import type { Org, Restaurant, Role, Session } from '@/model';
@@ -49,7 +49,7 @@ function ServerDown({ error, onRetry }: { error: Error; onRetry: () => void }) {
   return (
     <div role="alert" className="grid min-h-dvh place-items-center bg-canvas p-6 text-sm">
       <div className="grid max-w-md gap-3 text-center">
-        <h1 className="text-lg font-semibold">{unreachable ? "We can't reach Lunch Board right now" : "Today's lunch didn't load"}</h1>
+        <h1 className="text-lg font-semibold">{unreachable ? "We can't reach Tiffmate right now" : "Today's food party didn't load"}</h1>
         <p className="text-muted-foreground">{error.message}</p>
         {unreachable && <p className="text-muted-foreground">Your picks are safe. Check your internet connection, then try again.</p>}
         {import.meta.env.DEV && unreachable && (
@@ -65,7 +65,7 @@ function ServerDown({ error, onRetry }: { error: Error; onRetry: () => void }) {
 
 // While the app finds out who you are and what today's lunch is: its own shape, in grey.
 function Connecting() {
-  return <AppSkeleton label="Loading today's lunch" />;
+  return <AppSkeleton label="Loading today's food party" />;
 }
 
 export function LiveStore({ children }: { children: ReactNode }) {
@@ -162,7 +162,7 @@ function LiveBridge({ me, children }: { me: ApiMe; children: ReactNode }) {
     const offered = b.offered_restaurants?.length ? b.offered_restaurants.map((r) => r.id) : (mine?.restaurantIds ?? []);
     return {
       id: b.id,
-      title: 'Lunch',
+      title: 'Food party',
       date: localDate(new Date(b.cutoff_at)),
       cutoff: hhmm(new Date(b.cutoff_at)),
       address: b.address?.address ?? '', // a board saved before addresses had their own table has none
@@ -196,7 +196,7 @@ function LiveBridge({ me, children }: { me: ApiMe; children: ReactNode }) {
           if (!found) return [];
           return [{
             restaurant_name: found.restaurant.name,
-            restaurant_id: /^\d+$/.test(found.restaurant.id) ? found.restaurant.id : '',
+            restaurant_id: /^\d+$/.test(found.restaurant.id) || isLocalId(found.restaurant.id) ? found.restaurant.id : '',
             dish_name: found.dish.name,
             quantity: l.qty,
             price_paise: Math.round(found.dish.price * 100),
@@ -207,7 +207,7 @@ function LiveBridge({ me, children }: { me: ApiMe; children: ReactNode }) {
         // Completing: the cart goes on the board and becomes final in one request. It resolves only when the
         // API has said yes, so nothing is celebrated (or shown as complete) before that.
         if (!id) {
-          const none = new Error('There is no lunch to complete your order in. Refresh and try again.');
+          const none = new Error('There is no food party to complete your order in. Refresh and try again.');
           fail("Couldn't complete your order")(none);
           return Promise.reject(none);
         }
@@ -228,7 +228,7 @@ function LiveBridge({ me, children }: { me: ApiMe; children: ReactNode }) {
         // Your own skip, or the host marking someone else as skipping.
         return (a.userId === me.id ? skip.mutateAsync() : id ? skipPerson.mutateAsync({ lunchId: id, userId: a.userId }) : Promise.resolve()).catch(
           (e: Error) => {
-            fail(a.userId === me.id ? "Couldn't skip this lunch" : "Couldn't mark them as skipping")(e);
+            fail(a.userId === me.id ? "Couldn't skip this food party" : "Couldn't mark them as skipping")(e);
             throw e;
           },
         );
@@ -260,6 +260,7 @@ function LiveBridge({ me, children }: { me: ApiMe; children: ReactNode }) {
             cutoff_at: cutoffAt(a.cutoff),
             address: { address: a.address, ...(a.lat !== undefined && a.lng !== undefined && { lat: a.lat, lng: a.lng }) },
             ...(a.name?.trim() && { name: a.name.trim() }),
+            ...(a.localMenuIds?.length && { local_menu_ids: a.localMenuIds }),
             offered_restaurants: a.restaurantIds.map((id) => restaurantById(id)).filter((r): r is Restaurant => !!r).map(toOffered),
           })
           .then((b) => {
@@ -268,7 +269,7 @@ function LiveBridge({ me, children }: { me: ApiMe; children: ReactNode }) {
             return b.id; // the id is what the link to share is made from
           })
           .catch((e: Error) => {
-            fail("Couldn't start the lunch")(e);
+            fail("Couldn't start the food party")(e);
             throw e;
           });
       // The host's ticks are kept on the lunch, so every device and a second host see them.
@@ -303,7 +304,7 @@ function LiveBridge({ me, children }: { me: ApiMe; children: ReactNode }) {
         return closeLunch.mutateAsync(id).then(
           () => updateExtras(id, (e) => ({ ...e, completed: true })), // off Today's lunch at once, only once it really closed
           (e: Error) => {
-            fail("Couldn't close the lunch")(e);
+            fail("Couldn't close the food party")(e);
             throw e;
           },
         );
@@ -370,7 +371,7 @@ function LiveBridge({ me, children }: { me: ApiMe; children: ReactNode }) {
 
   const pendingInvites = invites.data;
   const org = useMemo<Org>(() => {
-    const party = me.org?.name ?? `${firstName(me.name)}'s party`;
+    const party = me.org?.name ?? `${firstName(me.name)}'s food party`;
     return settings.data
       ? orgFrom(settings.data, pendingInvites?.filter((i) => !i.accepted).map((i) => i.email) ?? [], demo.state.org)
       : { ...demo.state.org, name: party, team: party, emailDomain: me.org?.email_domain ?? '' };

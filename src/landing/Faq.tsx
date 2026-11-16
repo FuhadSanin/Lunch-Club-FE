@@ -3,31 +3,9 @@ import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/cn';
 import { Reveal } from './motion';
+import { FAQ } from './faq-data';
 
-// The questions people ask before they try it. Each answer is plain sentences, because this is also what
-// a search engine shows under the page's name: the same list is given to it as structured data.
-export const FAQ = [
-  {
-    q: 'What is Lunch Board?',
-    a: 'Lunch Board is group lunch ordering for teams. The host starts a lunch, everyone picks their own dish from any restaurant on Swiggy, and the host places one order for the whole team.',
-  },
-  {
-    q: 'Do we all have to order from the same restaurant?',
-    a: 'No. Each person picks from any restaurant, and Lunch Board adds every pick into one cart, grouped by restaurant. The host places the order restaurant by restaurant.',
-  },
-  {
-    q: 'How does the host know who ordered what?',
-    a: "Every dish goes into the restaurant's note with the person's name, so each bag arrives labelled. The board also shows who still has to pick and how much each person owes.",
-  },
-  {
-    q: 'Who can join our team on Lunch Board?',
-    a: "Anyone who signs in with a Google account at your company's email domain joins your team. The host can switch that off and invite people one by one. People with a Gmail address can start a party and share its link.",
-  },
-  {
-    q: 'Does Lunch Board pay for the food?',
-    a: 'No. The host places the Swiggy order and pays on delivery. Lunch Board collects the picks, builds the cart, tracks who has their food, and never touches payment.',
-  },
-];
+export { FAQ };
 
 export default function Faq({ onStart }: { onStart: () => void }) {
   // The first answer is open, so the section never looks like a list of closed doors; one at a time after that.
@@ -35,26 +13,15 @@ export default function Faq({ onStart }: { onStart: () => void }) {
 
   return (
     <section id="faq" aria-labelledby="faq-title" className="mx-auto max-w-[1200px] scroll-mt-24 px-5 pt-32 sm:px-8 md:pt-44">
-      <script
-        type="application/ld+json"
-        // Structured data for search engines: the same questions and answers as below.
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            '@context': 'https://schema.org',
-            '@type': 'FAQPage',
-            mainEntity: FAQ.map(({ q, a }) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: a } })),
-          }),
-        }}
-      />
       <div className="grid gap-x-10 gap-y-8 lg:grid-cols-12">
         <Reveal className="lg:col-span-5">
           <h2 id="faq-title" className="text-[clamp(32px,4.4vw,52px)] font-semibold leading-[1.08] tracking-[-0.04em]">
             Good to know.
           </h2>
-          <p className="mt-4 max-w-sm text-[17px] leading-7 text-body">Short answers to what teams ask before their first lunch.</p>
+          <p className="mt-4 max-w-sm text-[17px] leading-7 text-body">Short answers to what teams ask before their first food party.</p>
           <div className="mt-6 hidden lg:block">
             <p className="text-sm text-mute">Ready to try it?</p>
-            <Button onClick={onStart} className="mt-2">Start a lunch</Button>
+            <Button onClick={onStart} className="mt-2">Start a food party</Button>
           </div>
         </Reveal>
 
@@ -94,7 +61,7 @@ export default function Faq({ onStart }: { onStart: () => void }) {
           </div>
           <p className="mt-5 text-center text-sm text-mute lg:hidden">
             Ready to try it?{' '}
-            <button type="button" onClick={onStart} className="font-medium text-foreground underline-offset-4 hover:underline">Start a lunch</button>
+            <button type="button" onClick={onStart} className="font-medium text-foreground underline-offset-4 hover:underline">Start a food party</button>
           </p>
         </Reveal>
       </div>

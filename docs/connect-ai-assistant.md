@@ -1,4 +1,4 @@
-# How to use Lunch Club with an AI assistant
+# How to use Tiffmate with an AI assistant
 
 Run lunch by talking to an assistant such as Claude or ChatGPT: start a lunch, share the link, pick dishes, lock the picks and record the order. You sign in once and press Allow. After that the assistant acts as you, with your own permissions (a member's assistant can't lock the picks).
 
@@ -6,13 +6,14 @@ The same steps, examples and tools are on the app's **Connect to an AI assistant
 
 ## 1. Connect (one way: sign in)
 
-1. Open **Connect to an AI assistant** in the app and copy the server address (`https://lunchclubfe.vercel.app/mcp` unless your team set `VITE_MCP_URL`).
+1. Open **Connect to an AI assistant** in the app and copy the server address (`https://tiffmate.vercel.app/mcp` unless your team set `VITE_MCP_URL`).
 2. Add it to your assistant:
-   - **Claude app or claude.ai:** Settings, Connectors, Add custom connector, name it Lunch Club, paste the address, then Add and Connect.
-   - **Claude Code:** run `claude mcp add --transport http lunchclub <address>`, then type `/mcp` and choose Authenticate.
-   - **ChatGPT:** Settings, Connectors, Advanced, turn on Developer mode. Choose Create, name it Lunch Club, paste the address as the server URL, set authentication to OAuth and Create. In a new chat add Lunch Club from the + menu and press Connect. Needs a plan or workspace that allows custom connectors; menu names can differ a little.
+   - **Claude app or claude.ai:** Settings, Connectors, Add custom connector, name it Tiffmate, paste the address, then Add and Connect.
+   - **Claude Code:** run `claude mcp add --transport http tiffmate <address>`, then type `/mcp` and choose Authenticate.
+   - **ChatGPT:** Settings, Connectors, Advanced, turn on Developer mode. Choose Create, name it Tiffmate, paste the address as the server URL, set authentication to OAuth and Create. In a new chat add Tiffmate from the + menu and press Connect. Needs a plan or workspace that allows custom connectors; menu names can differ a little.
    - **Other assistants:** any that can add a remote MCP server over HTTP: add it, paste the address, connect.
-3. The assistant opens Lunch Club in your browser. Check its name and press **Allow**.
+   The Connect page has a **Download logo** button (PNG, 1024 x 1024, or SVG): use it as the connector's icon if ChatGPT or Claude asks for one. The files are `public/brand/tiffmate-logo.png` and `.svg`.
+3. The assistant opens Tiffmate in your browser. Check its name and press **Allow**.
 
 It now shows under **Connected assistants**. Press **Disconnect** any time: it stops working at once and can't sign itself back in.
 
@@ -42,6 +43,6 @@ Two ready-made prompts, in assistants that offer them: `start_team_lunch` and `p
 
 ## If something goes wrong
 
-- **"You're not signed in to Lunch Club" or "didn't accept that sign-in":** connect the assistant again (steps above).
+- **"You're not signed in to Tiffmate" or "didn't accept that sign-in":** connect the assistant again (steps above).
 - **It says you can't do something:** it can only do what you can in the app, for example only the host locks picks.
 - **The Connect page shows "Something went wrong" in development:** restart the dev server with `npm run dev -- --force`, then hard-reload.

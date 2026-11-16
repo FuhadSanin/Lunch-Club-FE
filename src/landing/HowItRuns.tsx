@@ -34,17 +34,17 @@ const BODY: Record<StepId, (c: Ctx) => string> = {
   order: () => 'The host confirms once. The Swiggy bot adds every restaurant to one cart, checks the total against the board and places the order, cash on delivery.',
   collect: () => 'The food comes in one restaurant at a time. The host checks each bag against what was ordered and marks it as arrived.',
   distribute: () => "Each person's card shows exactly what they ordered, so the right bag goes to the right person. The host ticks them off as they collect.",
-  finish: () => 'With everyone served, the host closes the lunch so the next one can start. Then everyone eats.',
+  finish: () => 'With everyone served, the host closes the food party so the next one can start. Then everyone eats.',
 };
 
 // Each step ends with the moment the app plays when the host finishes it: the same colour, picture,
 // title and sound.
 const MOMENTS: Record<StepId, { tone: NonNullable<Moment['tone']>; icon?: Moment['icon']; kind?: Moment['kind']; sound: SoundKind; title: string; sub: (c: Ctx) => string }> = {
-  start: { tone: 'gold', icon: 'megaphone', sound: 'start', title: 'Lunch started', sub: (c) => `Picks close at ${c.cutoff}. Share the link and the team can pick.` },
+  start: { tone: 'gold', icon: 'megaphone', sound: 'start', title: 'Food party started', sub: (c) => `Picks close at ${c.cutoff}. Share the link and the team can pick.` },
   review: { tone: 'ink', kind: 'lock', sound: 'lock', title: 'Picks locked', sub: (c) => `${plural(c.lunch.picked.length, 'person', 'people')}, ${plural(c.lunch.dishes, 'dish', 'dishes')}, ${rupees(c.lunch.total)}. Nobody can change their pick now.` },
   order: { tone: 'green', icon: 'cart', sound: 'money', title: 'Order placed', sub: (c) => `${c.lunch.dishes} dishes from ${c.lunch.cart.length} restaurants, ${rupees(c.lunch.total)}, cash on delivery.` },
   collect: { tone: 'indigo', icon: 'bag', sound: 'doorbell', title: "Food's here!", sub: (c) => `All ${c.lunch.cart.length} restaurants have arrived. Time to hand it out.` },
-  distribute: { tone: 'violet', icon: 'cloche', sound: 'served', title: "Everyone's served", sub: (c) => `All ${c.lunch.picked.length} people have their lunch.` },
+  distribute: { tone: 'violet', icon: 'cloche', sound: 'served', title: "Everyone's served", sub: (c) => `All ${c.lunch.picked.length} people have their food.` },
   finish: { tone: 'coral', icon: 'cutlery', sound: 'cheer', title: 'Enjoy your meal!', sub: (c) => `${c.lunch.picked.length} people fed from ${c.lunch.cart.length} restaurants, one Swiggy order.` },
 };
 
@@ -101,7 +101,7 @@ export default function HowItRuns() {
             <div className="min-w-0 md:col-span-5">
               <Reveal>
                 <h2 id="how-title" className="text-[clamp(32px,4.4vw,52px)] font-semibold leading-[1.08] tracking-[-0.04em]">
-                  How lunch runs.
+                  How a food party runs.
                 </h2>
                 <SoundToggle
                   className="mt-6"
@@ -380,7 +380,7 @@ function SceneStart({ onDone }: SceneProps) {
   return (
     <Panel>
       <div className="flex items-baseline justify-between text-sm">
-        <span className="font-semibold">Start lunch</span>
+        <span className="font-semibold">Start food party</span>
         <span className="text-muted-foreground">Picks close at {DEMO_SESSION.cutoff}</span>
       </div>
       <div className="mt-4 flex items-baseline justify-between text-[13px]">
@@ -402,7 +402,7 @@ function SceneStart({ onDone }: SceneProps) {
         </AnimatePresence>
       </ul>
       <div className="mt-4 flex justify-end">
-        <PressButton at={500 + restaurants.length * 380 + 900} onPress={onDone}>Start lunch</PressButton>
+        <PressButton at={500 + restaurants.length * 380 + 900} onPress={onDone}>Start food party</PressButton>
       </div>
     </Panel>
   );
@@ -599,7 +599,7 @@ function SceneFinish({ ctx, onDone }: SceneProps) {
       <motion.span className="grid size-14 place-items-center rounded-full bg-ok-soft text-ok" aria-hidden="true" initial={{ scale: 0, rotate: -20 }} animate={{ scale: 1, rotate: 0 }} transition={{ ...spring, delay: 0.15 }}>
         <Icon name="check" size={24} />
       </motion.span>
-      <p className="text-lg font-semibold tracking-[-0.03em]">Everyone has their lunch. Enjoy!</p>
+      <p className="text-lg font-semibold tracking-[-0.03em]">Everyone has their food. Enjoy!</p>
       <dl className="grid w-full grid-cols-2 gap-2">
         {facts.map((f) => (
           <div key={f.label} className="rounded-xl bg-muted/60 px-3 py-2.5">

@@ -10,7 +10,7 @@ import { originOf, useCelebrate } from '@/components/celebrate';
 
 // The last step: everything is handed out, so the host closes the lunch and the next one can start,
 // with a cheerful send-off.
-const CHEERS = ['Enjoy your meal!', 'Have fun!', 'Bon appétit!', 'Dig in!', 'Lunch is served!', 'Happy eating!'];
+const CHEERS = ['Enjoy your meal!', 'Have fun!', 'Bon appétit!', 'Dig in!', 'Food is served!', 'Happy eating!'];
 export default function Finish() {
   const { state, dispatch } = useStore();
   const lunch = useLunch();
@@ -24,7 +24,7 @@ export default function Finish() {
     setConfirming(false);
     const line = CHEERS[Math.floor(Math.random() * CHEERS.length)];
     run('finish', () => dispatch({ type: 'finishLunch' })).then(() => {
-      celebrate({ ...from, title: line, sub: `${lunch.picked.length} people fed from ${lunch.cart.length} restaurants. The next lunch can start whenever you're hungry again.`, tone: 'coral', icon: 'cutlery', sound: 'cheer' });
+      celebrate({ ...from, title: line, sub: `${lunch.picked.length} people fed from ${lunch.cart.length} restaurants. The next food party can start whenever you're hungry again.`, tone: 'coral', icon: 'cutlery', sound: 'cheer' });
       window.location.hash = '/';
     }, () => undefined);
   };
@@ -42,9 +42,9 @@ export default function Finish() {
         <CardContent className="grid justify-items-center gap-5 py-10 text-center">
           <span className="grid size-16 place-items-center rounded-full bg-ok-soft text-ok" aria-hidden="true"><Icon name="check" size={28} /></span>
           <div>
-            <h2 className="text-xl font-semibold tracking-[-0.03em]">Everyone has their lunch. Enjoy!</h2>
+            <h2 className="text-xl font-semibold tracking-[-0.03em]">Everyone has their food. Enjoy!</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              {session.orderRef ? <>Swiggy {session.orderRef}. </> : null}Completing closes this lunch for everyone.
+              {session.orderRef ? <>Swiggy {session.orderRef}. </> : null}Completing closes this food party for everyone.
             </p>
           </div>
           <dl className="grid w-full max-w-lg grid-cols-2 gap-3 sm:grid-cols-4">
@@ -62,12 +62,12 @@ export default function Finish() {
       <Dialog open={confirming} onOpenChange={setConfirming}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Complete today's lunch?</DialogTitle>
-            <DialogDescription>It moves to the lunch history, and the next lunch can start.</DialogDescription>
+            <DialogTitle>Complete today's food party?</DialogTitle>
+            <DialogDescription>It moves to the food party history, and the next food party can start.</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirming(false)}>Not yet</Button>
-            <Button onClick={finish}>Complete the lunch</Button>
+            <Button onClick={finish}>Complete the food party</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

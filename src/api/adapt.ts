@@ -64,8 +64,15 @@ export const toOffered = (r: Restaurant): ApiOffered => ({
   ...(r.photo?.startsWith('http') && { photo: safeUrl(r.photo) }),
 });
 export const fromOffered = (r: ApiOffered): Restaurant => ({
-  id: r.id, name: r.name, area: r.area, cuisines: r.cuisines, rating: r.rating, eta: r.eta, distanceKm: r.distance_km, photo: r.photo, categories: [],
+  id: r.id, name: r.name, area: r.area, cuisines: r.cuisines, rating: r.rating, eta: r.eta, distanceKm: r.distance_km, photo: r.photo,
+  ...(r.local && { local: true }),
+  // A local menu brings its dishes with it.
+  categories: r.local
+    ? [{ name: 'Menu', dishes: (r.items ?? []).map((i) => ({ id: `${r.id}:${i.id}`, name: i.name, price: i.price_paise / 100, veg: i.veg ?? undefined, photo: i.photo || undefined })) }]
+    : [],
 });
+// A local restaurant's id says so, and it is the id the API keeps on the pick.
+export const isLocalId = (id: string) => id.startsWith('local-');
 export const toPerson = (p: ApiPerson & { email?: string }): Person => ({ id: p.id, name: p.name, email: p.email ?? '', hue: hueOf(p.id) });
 
 // Picks store a restaurant and dish by name. Find the dish in a loaded menu, or make a stand-in so the

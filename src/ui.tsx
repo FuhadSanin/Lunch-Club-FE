@@ -26,7 +26,8 @@ export function Avatar({ person, size = 'md', className }: { person: Person; siz
   );
 }
 
-export function VegMark({ veg }: { veg: boolean }) {
+export function VegMark({ veg }: { veg?: boolean }) {
+  if (veg === undefined) return null; // a local menu that doesn't say
   return (
     <span
       role="img"
@@ -119,6 +120,10 @@ const paths: Record<string, string> = {
   bell: 'M10 3a4.5 4.5 0 0 0-4.5 4.5c0 4-1.5 5-1.5 5.5h12c0-.5-1.5-1.5-1.5-5.5A4.5 4.5 0 0 0 10 3zM8.2 15.5a1.9 1.9 0 0 0 3.6 0',
   flame: 'M10 2.5c.5 3-3.5 4.5-3.5 8.2a3.5 3.5 0 0 0 7 0c0-1.2-.5-2-1-2.7-.2 1-.8 1.5-1.4 1.7.6-2.5-.1-5.2-1.1-7.2z',
   doc: 'M5 2.5h7l3.5 3.5v11.5H5zM12 2.5V6h3.5M7.5 10h5M7.5 13h5',
+  store: 'M3 8l1.5-4.5h11L17 8M3 8h14M4 8v8.5h12V8M8 16.5V12h4v4.5',
+  image: 'M4 5.5A1.5 1.5 0 0 1 5.5 4h9A1.5 1.5 0 0 1 16 5.5v9a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 4 14.5zM4.5 14l3.5-3.5 2.5 2.5 2-2 3 3M12.5 8.2h.01',
+  trash: 'M4.5 6h11M8 6V4h4v2M6 6l.7 10h6.6L14 6M8.5 9v4.5M11.5 9v4.5',
+  pencil: 'M4 16l.8-3.6L13.5 3.7a1.5 1.5 0 0 1 2.1 0l.7.7a1.5 1.5 0 0 1 0 2.1L7.6 15.2zM12 5.2l2.8 2.8',
   plug: 'M7 3v4M13 3v4M5 7h10v3a5 5 0 0 1-10 0zM10 15v2.5',
   moon: 'M16 12.5A6.5 6.5 0 0 1 7.5 4a6.5 6.5 0 1 0 8.5 8.5z',
   lock: 'M6 9V6.5a4 4 0 0 1 8 0V9M5 9h10v8H5z',
@@ -165,7 +170,7 @@ export function LiveDot({ className }: { className?: string }) {
 
 // A restaurant's Swiggy rating as five golden stars, each filled as far as the score reaches
 // (4.3: four full and a third), then the number.
-const STAR = 'M10 1.8l2.5 5.2 5.7.8-4.1 4 1 5.6L10 14.7l-5.1 2.7 1-5.6-4.1-4 5.7-.8z';
+export const STAR = 'M10 1.8l2.5 5.2 5.7.8-4.1 4 1 5.6L10 14.7l-5.1 2.7 1-5.6-4.1-4 5.7-.8z';
 export function Rating({ value, size = 14, className }: { value?: number; size?: number; className?: string }) {
   if (!value) return null;
   const score = Math.max(0, Math.min(5, value));

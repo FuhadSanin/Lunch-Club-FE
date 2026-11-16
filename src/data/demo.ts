@@ -19,11 +19,11 @@ const FIRST = [
 ];
 
 export const PEOPLE: Person[] = [
-  { id: ME_ID, name: 'Fuhad Sanin', email: 'fuhad@lunchboard.demo', hue: 168 },
+  { id: ME_ID, name: 'Fuhad Sanin', email: 'fuhad@tiffmate.demo', hue: 168 },
   ...FIRST.map((name, i) => ({
     id: `u-${i + 1}`,
     name,
-    email: `${name.split(' ')[0].toLowerCase()}@lunchboard.demo`,
+    email: `${name.split(' ')[0].toLowerCase()}@tiffmate.demo`,
     hue: Math.round((i * 137.5 + 20) % 360),
   })),
 ];
@@ -63,7 +63,7 @@ export const DEMO_PICKS = buildPicks();
 
 export const DEMO_SESSION: Session = {
   id: 's-today',
-  title: "Today's lunch",
+  title: "Today's party",
   date: new Date().toISOString().slice(0, 10),
   cutoff: '12:30',
   address: 'Office, 4th floor, Infopark Phase 2, Kakkanad',
@@ -76,9 +76,9 @@ export const DEMO_SESSION: Session = {
 };
 
 export const DEMO_ORG: Org = {
-  name: 'Lunchboard demo company',
+  name: 'Tiffmate demo company',
   team: 'Platform team',
-  emailDomain: 'lunchboard.demo',
+  emailDomain: 'tiffmate.demo',
   autoJoin: true,
   addresses: ['Office, 4th floor, Infopark Phase 2, Kakkanad', 'Annexe, 2nd floor, Infopark Phase 1, Kakkanad'],
   invites: [],

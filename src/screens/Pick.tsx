@@ -194,14 +194,14 @@ export default function PickScreen() {
         </div>
       )}
       <PageTitle
-        title="Pick my lunch"
+        title="Pick my food"
         sub={
           open
             ? <>Search any restaurant or dish on Swiggy, or open one of today's {restaurants.length} restaurants. Picks close at <strong className="font-semibold text-foreground">{session.cutoff}</strong>.</>
             : session.status === 'locked'
               ? 'Picks are closed for today. Ask the host if you need a change.'
               : session.status === 'delivered'
-                ? "Today's lunch has arrived."
+                ? "Today's the food has arrived."
                 : "Today's order is placed on Swiggy."
         }
       />

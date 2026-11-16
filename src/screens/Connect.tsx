@@ -30,7 +30,7 @@ export default function Connect() {
           </DialogContent>
         </Dialog>
         <p className="mt-3 max-w-2xl text-[15px] leading-6 text-body">
-          Run lunch by talking: start it, share the link, pick dishes and keep track, from Claude, ChatGPT or another assistant. You sign in once and press Allow; after that it acts as you, with your own permissions.
+          Run a food party by talking: start it, share the link, pick dishes and keep track, from Claude, ChatGPT or another assistant. You sign in once and press Allow; after that it acts as you, with your own permissions.
         </p>
       </header>
       <div className="grid max-w-[900px] gap-10">

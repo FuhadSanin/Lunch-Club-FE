@@ -1,4 +1,4 @@
-/* Lunch Board design tokens.
+/* Tiffmate design tokens.
    Type, surfaces, radii and elevation follow Vercel's Geist system (ink on near-white, hairline rings,
    stacked shadows, 600-weight display with tight tracking). Motion follows Apple: long, soft
    ease-outs and springs, transform and opacity only. Components are shadcn/ui (src/components/ui);
@@ -91,7 +91,7 @@
   --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   --font-heading: var(--font-sans);
 
-  /* Lunch Board tokens */
+  /* Tiffmate tokens */
   --color-ink: var(--ink);
   --color-on-ink: var(--on-ink);
   --color-body: var(--body);
@@ -239,3 +239,16 @@
     .lit-square { animation: none; opacity: 0.6; }
   }
 }
+
+/* The flame beside "Trending" flickers: a slow sway and a bright pulse. Off for people who ask for less motion. */
+@keyframes flame-flicker {
+  0%, 100% { transform: scale(1) rotate(-3deg); filter: drop-shadow(0 0 0 transparent); }
+  25% { transform: scale(1.18, 1.28) rotate(4deg) translateY(-1px); filter: drop-shadow(0 0 4px color-mix(in oklab, var(--warn) 60%, transparent)); }
+  50% { transform: scale(0.96, 1.08) rotate(-4deg); }
+  75% { transform: scale(1.12, 1.22) rotate(3deg) translateY(-1px); filter: drop-shadow(0 0 5px color-mix(in oklab, var(--warn) 70%, transparent)); }
+}
+.flame-flicker { transform-origin: 50% 90%; animation: flame-flicker 1.5s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .flame-flicker { animation: none; } }
+
+/* See public/theme-init.js: the pre-rendered copy of the landing page (#prerender, see vite.config.ts) never shows for someone signed in. */
+html.signed-in #prerender { display: none; }

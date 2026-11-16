@@ -3,46 +3,107 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="Lunch Board makes group lunch ordering simple: everyone on the team picks their own dish from any Swiggy restaurant, and the host places one order. Names on every bag, one cart, no spreadsheets." />
-    <meta name="robots" content="index, follow, max-image-preview:large" />
-    <link rel="canonical" href="https://lunchclubfe.vercel.app/" />
+    <title>Tiffmate: group food ordering for teams and parties | One Swiggy order</title>
+    <meta name="description" content="Tiffmate makes group food ordering simple for any party, breakfast, lunch, dinner or snacks: everyone picks their own dish from any Swiggy restaurant, and the host places one order. Works with ChatGPT, Claude and any AI chat, and with local menus that aren't on Swiggy." />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-video-preview:-1" />
+    <link rel="canonical" href="https://tiffmate.vercel.app/" />
+    <link rel="alternate" hreflang="en-IN" href="https://tiffmate.vercel.app/" />
+    <link rel="alternate" hreflang="x-default" href="https://tiffmate.vercel.app/" />
     <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="Lunch Board" />
-    <meta property="og:title" content="Lunch Board: group lunch ordering, one Swiggy order for the whole team" />
-    <meta property="og:description" content="Everyone picks their own dish from any restaurant. The host places one order. Names on every bag, no spreadsheets." />
-    <meta property="og:url" content="https://lunchclubfe.vercel.app/" />
-    <meta property="og:image" content="https://lunchclubfe.vercel.app/promo/story-poster.jpg" />
-    <meta property="og:image:alt" content="Lunch Board: everyone picks. One order." />
+    <meta property="og:site_name" content="Tiffmate" />
+    <meta property="og:title" content="Tiffmate: group food ordering, one Swiggy order for the whole team" />
+    <meta property="og:description" content="Everyone picks their own dish from any restaurant. The host places one order. Works with every AI chat, and with local menus." />
+    <meta property="og:url" content="https://tiffmate.vercel.app/" />
+    <meta property="og:image" content="https://tiffmate.vercel.app/og.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Tiffmate: group food ordering. Everyone picks. One order." />
     <meta property="og:locale" content="en_IN" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Lunch Board: group lunch ordering for teams" />
+    <meta name="twitter:title" content="Tiffmate: group food ordering for teams and parties" />
     <meta name="twitter:description" content="Everyone picks their own dish from any restaurant. The host places one order." />
-    <meta name="twitter:image" content="https://lunchclubfe.vercel.app/promo/story-poster.jpg" />
+    <meta name="twitter:image" content="https://tiffmate.vercel.app/og.png" />
+    <meta name="twitter:image:alt" content="Tiffmate: group food ordering. Everyone picks. One order." />
     <meta name="theme-color" content="#ffffff" />
     <meta name="color-scheme" content="light dark" />
     <script src="/theme-init.js"></script>
-    <title>Lunch Board: group lunch ordering for teams | One Swiggy order</title>
     <link rel="preload" href="/fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" as="image" href="/illustrations/desks.webp" type="image/webp" fetchpriority="high" media="(min-width: 768px)" />
+    <link rel="preload" as="image" href="/illustrations/desks-1200.webp" type="image/webp" fetchpriority="high" media="(max-width: 767px)" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
     <script type="application/ld+json">
-      {{
+      {
         "@context": "https://schema.org",
-        "@type": "WebApplication",
-        "name": "Lunch Board",
-        "url": "{SITE}/",
-        "applicationCategory": "BusinessApplication",
-        "operatingSystem": "Any (web browser)",
-        "description": "Group lunch ordering for teams: everyone picks their own dish from any Swiggy restaurant and the host places one order.",
-        "inLanguage": "en-IN",
-        "offers": {{ "@type": "Offer", "price": "0", "priceCurrency": "INR" }}
-      }}
+        "@graph": [
+          {
+            "@type": "WebSite",
+            "@id": "https://tiffmate.vercel.app/#website",
+            "url": "https://tiffmate.vercel.app/",
+            "name": "Tiffmate",
+            "inLanguage": "en-IN"
+          },
+          {
+            "@type": "Organization",
+            "@id": "https://tiffmate.vercel.app/#org",
+            "name": "Tiffmate",
+            "url": "https://tiffmate.vercel.app/",
+            "logo": { "@type": "ImageObject", "url": "https://tiffmate.vercel.app/icon-512.png", "width": 512, "height": 512 }
+          },
+          {
+            "@type": "WebApplication",
+            "@id": "https://tiffmate.vercel.app/#app",
+            "name": "Tiffmate",
+            "url": "https://tiffmate.vercel.app/",
+            "image": "https://tiffmate.vercel.app/og.png",
+            "applicationCategory": "BusinessApplication",
+            "operatingSystem": "Any (web browser)",
+            "description": "Group food ordering for teams and parties, any meal: everyone picks their own dish from any Swiggy restaurant and the host places one order.",
+            "inLanguage": "en-IN",
+            "publisher": { "@id": "https://tiffmate.vercel.app/#org" },
+            "featureList": [
+              "Everyone picks their own dish from any Swiggy restaurant",
+              "One cart, grouped by restaurant, with each person's name on their food",
+              "Works with ChatGPT, Claude and any AI chat that supports MCP",
+              "Local menu: add a restaurant that is not on Swiggy from a photo of its menu, or by hand",
+              "Who ordered what and who owes how much"
+            ],
+            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "INR" }
+          },
+          {
+            "@type": "VideoObject",
+            "name": "Tiffmate with your AI chat",
+            "description": "Friends photograph a restaurant's paper menu, their AI chat starts a food party with Tiffmate, and everyone adds their own dish from the shared link.",
+            "thumbnailUrl": "https://tiffmate.vercel.app/promo/mcp-poster.jpg",
+            "contentUrl": "https://tiffmate.vercel.app/promo/mcp.mp4",
+            "uploadDate": "2026-11-16",
+            "duration": "PT51S",
+            "inLanguage": "en"
+          },
+          {
+            "@type": "VideoObject",
+            "name": "The Tiffmate story",
+            "description": "Ordering food for 35 people with one phone going round, and how Tiffmate turns it into six steps.",
+            "thumbnailUrl": "https://tiffmate.vercel.app/promo/story-poster.jpg",
+            "contentUrl": "https://tiffmate.vercel.app/promo/story.mp4",
+            "uploadDate": "2026-11-16",
+            "duration": "PT1M56S",
+            "inLanguage": "en"
+          }
+        ]
+      }
     </script>
+    <!--FAQ_JSONLD-->
   </head>
   <body>
     <div id="root"></div>
+    <!--PRERENDERED-->
     <noscript>
-      <h1>Lunch Board: group lunch ordering for teams</h1>
-      <p>Everyone on your team picks their own dish from any Swiggy restaurant, and the host places one order for all of it. Lunch Board puts every pick into one cart, writes each person's name on their food, and shows who still has to pick. It needs JavaScript to run.</p>
+      <!-- Without scripts the pre-rendered page above is all there is: show every part of it. -->
+      <style>#prerender *{opacity:1!important;transform:none!important}</style>
     </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>

@@ -111,7 +111,7 @@ export default function Settings() {
       <PageTitle title="Settings" sub={`${org.name}: ${PEOPLE.length} members, ${org.addresses.length} addresses. The host manages everything here.`} />
 
       <div className="grid gap-8">
-        <Section id="co-h" title="Company" intro="The name people see on every lunch, and who can join without an invite.">
+        <Section id="co-h" title="Company" intro="The name people see on every food party, and who can join without an invite.">
           <form className="grid gap-5" onSubmit={saveCompany}>
             <Field>
               <FieldLabel htmlFor="co-name" required>Company name</FieldLabel>
@@ -144,15 +144,15 @@ export default function Settings() {
           <>
             <Section
               id="lunch-h"
-              title="Lunch defaults"
-              intro={<p>How a new lunch chooses its restaurants. Hosts can still change it when they start a lunch.</p>}
+              title="Food party defaults"
+              intro={<p>How a new food party chooses its restaurants. Hosts can still change it when they start a food party.</p>}
             >
               <Field>
-                <FieldLabel>Restaurants for a new lunch</FieldLabel>
+                <FieldLabel>Restaurants for a new food party</FieldLabel>
                 <div>
                 <Segmented<RestaurantMode>
                   className="w-fit"
-                  label="Restaurants for a new lunch"
+                  label="Restaurants for a new food party"
                   value={org.restaurantMode}
                   onChange={(restaurantMode) => dispatch({ type: 'updateOrg', org: { restaurantMode } })}
                   options={[
@@ -194,7 +194,7 @@ export default function Settings() {
           title="Invite people"
           intro={<>
             <p>{live ? 'Each person gets an email with a sign-in link.' : 'Each person gets an email with a sign-in link. This is the demo, so no email is sent: it only keeps the list.'}</p>
-            <p>Preview: “{org.team} uses Lunch Board for group lunch. Sign in with Google to pick your food.”</p>
+            <p>Preview: “{org.team} uses Tiffmate for group food orders. Sign in with Google to pick your food.”</p>
           </>}
         >
           <form className="grid gap-5" onSubmit={invite}>
@@ -220,8 +220,8 @@ export default function Settings() {
 
         <Separator />
 
-        <Section id="addr-h" title="Addresses" intro="Hosts choose one when they start a lunch, and nearby restaurants are measured from it. It must match an address saved on the host's Swiggy account.">
-          {org.addresses.length === 0 && <p className="rounded-xl border border-dashed border-input p-4 text-sm text-muted-foreground">No addresses yet. Add where lunch is delivered, so hosts can choose it.</p>}
+        <Section id="addr-h" title="Addresses" intro="Hosts choose one when they start a food party, and nearby restaurants are measured from it. It must match an address saved on the host's Swiggy account.">
+          {org.addresses.length === 0 && <p className="rounded-xl border border-dashed border-input p-4 text-sm text-muted-foreground">No addresses yet. Add where the food is delivered, so hosts can choose it.</p>}
           <ul className="grid gap-2">
             <AnimatePresence initial={false}>
               {org.addresses.map((a) => (
@@ -265,12 +265,12 @@ export default function Settings() {
           <Section
             id="mem-h"
             title="Members"
-            intro="Everyone picks lunch. Hosts also start lunches, lock picks, confirm the cart, reopen people's orders and manage these settings. A lunch can have several hosts."
+            intro="Everyone picks food. Hosts also start food parties, lock picks, confirm the cart, reopen people's orders and manage these settings. A food party can have several hosts."
           >
             <LiveMembers />
           </Section>
         ) : (
-          <Section id="mem-h" title="Members" intro={`${PEOPLE.length} people. Everyone picks lunch; the host also starts lunches, places the order and manages these settings.`}>
+          <Section id="mem-h" title="Members" intro={`${PEOPLE.length} people. Everyone picks food; the host also starts food parties, places the order and manages these settings.`}>
             <ul className="grid gap-2">
               {PEOPLE.slice(0, 5).map((p) => (
                 <li key={p.id} className={listItem}>
@@ -314,18 +314,23 @@ export default function Settings() {
           </div>
         </Section>
 
-        <Separator />
+        {/* Only the demo has sample data to put back: a real account never shows this. */}
+        {!live && (
+          <>
+            <Separator />
 
-        <Section id="reset-h" title="Demo data" intro="Puts back the sample lunch, picks and settings. Only this browser is affected.">
-          <Button variant="destructive" className="w-fit" onClick={() => setConfirmReset(true)}>Reset the demo</Button>
-        </Section>
+            <Section id="reset-h" title="Demo data" intro="Puts back the sample food party, picks and settings. Only this browser is affected.">
+              <Button variant="destructive" className="w-fit" onClick={() => setConfirmReset(true)}>Reset the demo</Button>
+            </Section>
+          </>
+        )}
       </div>
 
       <Dialog open={confirmReset} onOpenChange={setConfirmReset}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Reset the demo lunch?</DialogTitle>
-            <DialogDescription>Today's sample lunch, its 35 people and their picks come back, and your changes in this browser are lost.</DialogDescription>
+            <DialogTitle>Reset the demo food party?</DialogTitle>
+            <DialogDescription>Today's sample food party, its 35 people and their picks come back, and your changes in this browser are lost.</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmReset(false)}>Keep my changes</Button>
@@ -388,8 +393,8 @@ function LiveMembers() {
             <DialogTitle>{change?.toHost ? `Make ${change && first(change.user)} a host?` : `Make ${change && first(change.user)} a member again?`}</DialogTitle>
             <DialogDescription>
               {change?.toHost
-                ? 'Hosts start lunches, lock picks, confirm the cart and place the order, reopen people\'s orders, and manage members.'
-                : 'They can still pick lunch, but can no longer start or run lunches or manage members.'}
+                ? 'Hosts start food parties, lock picks, confirm the cart and place the order, reopen people\'s orders, and manage members.'
+                : 'They can still pick food, but can no longer start or run food parties or manage members.'}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

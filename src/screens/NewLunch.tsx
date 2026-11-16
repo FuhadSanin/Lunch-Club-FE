@@ -7,7 +7,8 @@ import { RADIUS_RANGE } from '@/data/demo';
 import type { Restaurant } from '@/model';
 import { allDishes, byDistance, restaurantById, restaurantsWithin, useMenus } from '@/data/catalog';
 import { useRestaurants } from '@/data/swiggy';
-import { useLunches } from '@/api/queries';
+import { useLocalMenus, useLunches } from '@/api/queries';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useStore } from '@/store';
 import { FoodPhoto, Icon } from '@/ui';
 import { Button } from '@/components/ui/button';
@@ -17,7 +18,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { TimePicker } from '@/components/ui/time-picker';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { PillTabsList } from '@/components/ui/segmented';
@@ -50,6 +50,9 @@ const meta = (r: Restaurant) =>
 export default function NewLunch() {
   const { state, dispatch, now: DEMO_NOW, live, meId } = useStore();
   const lunches = useLunches(!!live);
+  // The host's own menus for restaurants that aren't on Swiggy: a section of their own below the Swiggy restaurants.
+  const localMenus = useLocalMenus(!!live);
+  const [localPicked, setLocalPicked] = useState<string[]>([]);
   const [sending, setSending] = useState(false);
   const celebrate = useCelebrate();
   // One lunch at a time: while one is running, the form waits until it is closed.
@@ -64,7 +67,7 @@ export default function NewLunch() {
     if (live) setClosing(l);
     else {
       dispatch({ type: 'finishLunch' });
-      toast("Closed the demo lunch", { description: 'Start the next one below.' });
+      toast("Closed the demo food party", { description: 'Start the next one below.' });
     }
   };
   const [closing, setClosing] = useState<ApiLunch | null>(null);
@@ -80,8 +83,9 @@ export default function NewLunch() {
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
   const [newAddr, setNewAddr] = useState('');
+  const [adding, setAdding] = useState(false); // the search box for a new address (a company's list of addresses comes first)
   const [lunchName, setLunchName] = useState('');
-  const NAME_MISSING = 'Give the lunch a name, like Friday team lunch.';
+  const NAME_MISSING = 'Give the food party a name, like Friday team food party.';
   const nameMissing = error === NAME_MISSING;
   // A place chosen from the suggestions: restaurants are offered near it instead of near the office.
   const [place, setPlace] = useState<ApiPlace | null>(null);
@@ -121,7 +125,7 @@ export default function NewLunch() {
       .filter((l) => live?.personal ? l.host.id === meId && !l.joined : true)
       .sort((a, b) => b.created_at.localeCompare(a.created_at))
       .flatMap((l) => (l.address?.lat != null && l.address.lng != null && !seen.has(l.address.address.toLowerCase()) && seen.add(l.address.address.toLowerCase()) ? [l.address as Required<NonNullable<ApiLunch['address']>>] : []))
-      .slice(0, 5);
+      .slice(0, 10);
   }, [lunches.data, live?.personal, meId]);
   const chooseRecent = (a: (typeof recent)[number]) => {
     setPlace({ place_id: a.id, address: a.address, lat: a.lat as number, lng: a.lng as number });
@@ -132,6 +136,8 @@ export default function NewLunch() {
   // The saved addresses, then where earlier lunches went, plus one just added that the API hasn't echoed back yet.
   const known = [...state.org.addresses, ...recent.map((a) => a.address).filter((a) => !state.org.addresses.includes(a))];
   const addresses = !address || known.includes(address) ? known : [address, ...known];
+  // What the list shows: a company's addresses; a party host's own earlier places (and the one just searched for).
+  const shown = live?.personal ? [...(place && !recent.some((r) => r.address === place.address) ? [place.address] : []), ...recent.map((r) => r.address)] : addresses;
   // A place picked from the suggestions: deliver there, and (for a company) keep it with the saved addresses.
   const choosePlace = (p: ApiPlace) => {
     setPlace(p);
@@ -167,19 +173,19 @@ export default function NewLunch() {
       setError(live?.personal ? 'Search for the delivery place and choose it from the list.' : 'Add a delivery address first.');
       return;
     }
-    if (!chosen.length) {
+    if (!chosen.length && !localPicked.length) {
       setError(mode === 'nearby' ? `No restaurants within ${km(radius)}. Widen the range or choose them yourself.` : 'Choose at least one restaurant.');
       return;
     }
     setSending(true);
-    Promise.resolve(dispatch({ type: 'newSession', cutoff, address, restaurantIds: chosen, name: lunchName, lat: place?.lat, lng: place?.lng }))
+    Promise.resolve(dispatch({ type: 'newSession', cutoff, address, restaurantIds: chosen, localMenuIds: localPicked, name: lunchName, lat: place?.lat, lng: place?.lng }))
       .then((id) => {
         const url = linkFor(typeof id === 'string' ? id : undefined);
         if (typeof id === 'string') setCreatedId(id);
         setStarted(true);
-        celebrate({ x: innerWidth / 2, y: innerHeight / 2, title: 'Lunch started', sub: `Picks close at ${cutoff}. Share the link and the team can pick.`, tone: 'gold', icon: 'megaphone', sound: 'start' });
+        celebrate({ x: innerWidth / 2, y: innerHeight / 2, title: 'Food party started', sub: `Picks close at ${cutoff}. Share the link and the team can pick.`, tone: 'gold', icon: 'megaphone', sound: 'start' });
         // The page moves on to Review & lock; the link to share stays one tap away.
-        toast.success('Lunch started. Share it with the team', { description: url, duration: 12000, action: { label: 'Copy link', onClick: () => void copy(url) } });
+        toast.success('Food party started. Share it with the team', { description: url, duration: 12000, action: { label: 'Copy link', onClick: () => void copy(url) } });
       }, () => undefined) // a failure is already on screen as a toast
       .finally(() => setSending(false));
   };
@@ -197,7 +203,7 @@ export default function NewLunch() {
     <StepPage id="start" sub="Offer the restaurants near the office, or choose them yourself. Everyone gets one link.">
       <CloseLunchDialog lunch={closing} onOpenChange={(open) => !open && setClosing(null)} />
       <Tabs value={tab} onValueChange={(v) => setTab(v as 'active' | 'history')} className="gap-4">
-        <PillTabsList label="Lunches" value={tab} options={[{ value: 'active', label: 'Active lunch' }, { value: 'history', label: 'History' }]} className="w-fit" />
+        <PillTabsList label="Parties" value={tab} options={[{ value: 'active', label: 'Active food party' }, { value: 'history', label: 'History' }]} className="w-fit" />
         <TabsContent value="active" className="grid gap-4">
       <AnimatePresence mode="wait" initial={false}>
         {started ? (
@@ -207,12 +213,12 @@ export default function NewLunch() {
                 <motion.div className="mb-3 grid size-14 place-items-center rounded-full bg-primary text-primary-foreground" initial={{ scale: 0, rotate: -20 }} animate={{ scale: 1, rotate: 0 }} transition={{ ...spring, delay: 0.15 }} aria-hidden="true">
                   <Icon name="check" size={26} />
                 </motion.div>
-                <CardTitle id="share-h" className="text-2xl tracking-[-0.03em]">Lunch started. Share this link with the team.</CardTitle>
+                <CardTitle id="share-h" className="text-2xl tracking-[-0.03em]">Food party started. Share this link with the team.</CardTitle>
                 <CardDescription>Picks close at {cutoff}. {chosen.length} {chosen.length === 1 ? 'restaurant' : 'restaurants'}, delivery to {address}.</CardDescription>
               </CardHeader>
               <CardContent className="grid gap-5">
                 <div className="flex gap-2 max-sm:flex-col">
-                  <Input name="lunch-link" readOnly spellCheck={false} value={link} aria-label="Lunch link" className="h-10 font-mono text-[13px]" />
+                  <Input name="lunch-link" readOnly spellCheck={false} value={link} aria-label="Food party link" className="h-10 font-mono text-[13px]" />
                   <Button variant="outline" onClick={() => void copy()}>Copy link</Button>
                   <ShareLunch link={link} cutoff={cutoff} label="QR & share" />
                 </div>
@@ -228,9 +234,9 @@ export default function NewLunch() {
                 <div className="flex flex-wrap items-center gap-4">
                   <span className="grid size-10 flex-none place-items-center rounded-full bg-muted text-muted-foreground"><Icon name="lock" size={18} /></span>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium">You're in “{party.name || `${party.host.name.split(' ')[0]}'s party`}”</p>
+                    <p className="text-sm font-medium">You're in “{party.name || `${party.host.name.split(' ')[0]}'s food party`}”</p>
                     <p className="mt-1 text-[13px] text-muted-foreground">
-                      One party at a time.{' '}
+                      One food party at a time.{' '}
                       {party.joined
                         ? 'Exit it from the sidebar, or here, and then you can start your own.'
                         : party.status === 'open' || party.status === 'locked'
@@ -242,7 +248,7 @@ export default function NewLunch() {
                 </div>
                 {/* The party's link, so anyone in it can bring people in; the host also gets the QR code and share options. */}
                 <div className="grid gap-2 rounded-xl bg-muted/60 p-3">
-                  <Label htmlFor="party-link" className="text-[13px]">Party link</Label>
+                  <Label htmlFor="party-link" className="text-[13px]">Food party link</Label>
                   <div className="flex gap-2 max-sm:flex-col">
                     <Input id="party-link" readOnly spellCheck={false} value={lunchLink(party.id)} onFocus={(e) => e.currentTarget.select()} className="h-10 bg-background font-mono text-[13px]" />
                     <Button type="button" variant="outline" onClick={() => void copy(lunchLink(party.id))}>Copy link</Button>
@@ -255,7 +261,7 @@ export default function NewLunch() {
                       />
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground">It opens the party, so people can join and pick before the cutoff.</p>
+                  <p className="text-xs text-muted-foreground">It opens the food party, so people can join and pick before the cutoff.</p>
                 </div>
               </CardContent>
             </Card>
@@ -274,16 +280,16 @@ export default function NewLunch() {
                     <Button variant="outline" onClick={() => void copy()}>Copy link</Button>
                     <ShareLunch link={link} cutoff={state.session.cutoff} name={live?.lunchName} label="QR & share" />
                   </div>
-                  <p className="text-xs text-muted-foreground">It opens Pick my lunch, so everyone can choose before the cutoff.</p>
+                  <p className="text-xs text-muted-foreground">It opens Pick my food, so everyone can choose before the cutoff.</p>
                 </div>
-                <p className="text-[13px] text-muted-foreground">One lunch at a time. It ends at the last step, Enjoy your meal (or when it's called off before ordering); then you can start the next.</p>
+                <p className="text-[13px] text-muted-foreground">One food party at a time. It ends at the last step, Enjoy your meal (or when it's called off before ordering); then you can start the next.</p>
               </CardContent>
             </Card>
           </motion.div>
         ) : (
           <motion.div key="form" exit={{ opacity: 0, scale: 0.98 }}>
           <form onSubmit={start} className="grid items-start gap-4 lg:grid-cols-12">
-            <Card className="lg:col-span-8" aria-labelledby="rest-h">
+            <Card className="lg:col-span-8 lg:col-start-1 lg:row-start-1" aria-labelledby="rest-h">
               <CardHeader>
                 <CardTitle id="rest-h">Restaurants</CardTitle>
                 <CardDescription>Everything the team picks goes into one Swiggy cart.</CardDescription>
@@ -426,7 +432,51 @@ export default function NewLunch() {
               </CardContent>
             </Card>
 
-            <Card className="overflow-visible lg:sticky lg:top-8 lg:col-span-4" aria-labelledby="when-h">
+            {live && (
+              <Card className="lg:col-span-8 lg:col-start-1 lg:row-start-2" aria-labelledby="local-h">
+                <CardHeader>
+                  <CardTitle id="local-h">Local menu</CardTitle>
+                  <CardDescription>Restaurants you saved that aren't on Swiggy. You order these directly with the restaurant.</CardDescription>
+                  <CardAction>
+                    <Badge variant={localPicked.length ? 'info' : 'secondary'}>{localPicked.length} offered</Badge>
+                  </CardAction>
+                </CardHeader>
+                <CardContent>
+                  {localMenus.isPending && <Skeleton className="h-16 w-full rounded-xl" />}
+                  {localMenus.isError && <p className="rounded-xl border border-dashed border-input p-4 text-sm text-muted-foreground">Couldn't load your local menus. {localMenus.error.message}</p>}
+                  {localMenus.isSuccess && !localMenus.data.length && (
+                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-input p-4 text-sm text-muted-foreground">
+                      <span>You haven't saved a local menu yet.</span>
+                      <Button asChild variant="outline" size="sm"><a href="#/menus">Add a local menu</a></Button>
+                    </div>
+                  )}
+                  {localMenus.isSuccess && localMenus.data.length > 0 && (
+                    <ul className="grid gap-2" aria-label="Local menus">
+                      {localMenus.data.map((m) => {
+                        const id = `local-${m.id}`;
+                        const on = localPicked.includes(m.id);
+                        return (
+                          <li key={m.id}>
+                            <label htmlFor={id} className={cn('flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition-colors', on ? 'border-brand/50 bg-brand-soft/40' : 'hover:bg-muted/50')}>
+                              <Checkbox id={id} checked={on} onCheckedChange={() => { setError(''); setLocalPicked((c) => (on ? c.filter((x) => x !== m.id) : [...c, m.id])); }} />
+                              <FoodPhoto size={44} src={m.image || undefined} className="rounded-xl" />
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate text-sm font-medium">{m.name}</span>
+                                <span className="block text-[13px] text-muted-foreground num">
+                                  {[m.rating != null ? `${m.rating} rating` : '', m.distance_km != null ? `${m.distance_km} km` : '', `${m.items.length} ${m.items.length === 1 ? 'dish' : 'dishes'}`].filter(Boolean).join(' · ')}
+                                </span>
+                              </span>
+                            </label>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            <Card className="overflow-visible lg:sticky lg:top-8 lg:col-span-4 lg:col-start-9 lg:row-span-2 lg:row-start-1" aria-labelledby="when-h">
               <CardHeader><CardTitle id="when-h">When and where</CardTitle></CardHeader>
               <CardContent className="grid gap-5">
                 <Field>
@@ -434,66 +484,48 @@ export default function NewLunch() {
                   <TimePicker id="cutoff" value={cutoff} onValueChange={setCutoff} options={cutoffs} now={DEMO_NOW} />
                 </Field>
                 <Field>
-                  <FieldLabel htmlFor="lunch-name" required>Lunch name</FieldLabel>
-                  <Input id="lunch-name" name="lunch-name" autoComplete="off" maxLength={80} aria-required="true" aria-invalid={nameMissing || undefined} value={lunchName} onChange={(e) => { setLunchName(e.target.value); if (nameMissing) setError(''); }} placeholder="Friday team lunch" className="h-10" />
+                  <FieldLabel htmlFor="lunch-name" required>Food party name</FieldLabel>
+                  <Input id="lunch-name" name="lunch-name" autoComplete="off" maxLength={80} aria-required="true" aria-invalid={nameMissing || undefined} value={lunchName} onChange={(e) => { setLunchName(e.target.value); if (nameMissing) setError(''); }} placeholder="Friday team food party" className="h-10" />
                 </Field>
-                {live?.personal ? (
-                  <Field>
-                    <FieldLabel htmlFor="addr" required>Deliver to</FieldLabel>
-                    <PlaceInput id="addr" chosenText={place?.address} value={address} near={around} onChange={(t) => { setAddress(t); setPlace(null); }} onPlace={choosePlace} placeholder="Search your office, building or area…" />
-                    {recent.length > 0 && (
-                      <div className="mt-1" role="group" aria-label="Recent addresses">
-                        <p className="mb-1.5 text-[13px] text-muted-foreground">Recent addresses</p>
-                        <ul className="grid gap-1.5">
-                          {recent.map((a) => {
-                            const [where, area] = splitAddress(a.address);
-                            const on = place?.address === a.address;
-                            return (
-                              <li key={a.id}>
-                                <button
-                                  type="button"
-                                  onClick={() => chooseRecent(a)}
-                                  aria-pressed={on}
-                                  className={cn('flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring', on ? 'bg-muted shadow-ring' : 'bg-muted/40 hover:bg-muted/70')}
-                                >
-                                  <Icon name="pin" size={15} className="shrink-0 text-muted-foreground" />
-                                  <span className="min-w-0 flex-1">
-                                    <span className="block truncate text-sm font-medium">{where}</span>
-                                    {area && <span className="block truncate text-[13px] text-muted-foreground">{area}</span>}
-                                  </span>
-                                  {on && <Icon name="check" size={14} className="shrink-0" />}
-                                </button>
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      </div>
-                    )}
-                    <FieldDescription>{place ? `Restaurants are offered near ${place.address}.` : 'Choose a place from the suggestions; restaurants are offered near it.'}</FieldDescription>
-                  </Field>
-                ) : (
-                  <Field>
-                    <FieldLabel htmlFor="addr" required>Deliver to</FieldLabel>
-                    <Select value={address} onValueChange={(a) => { const r = recent.find((x) => x.address === a); if (r) chooseRecent(r); else { setAddress(a); setPlace(null); } }}>
-                      <SelectTrigger id="addr" className="w-full">
-                        <SelectValue placeholder="Choose or search an address">
-                          {splitAddress(address)[0]}
-                          {splitAddress(address)[1] && <span className="text-muted-foreground"> · {splitAddress(address)[1]}</span>}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {addresses.map((a) => {
-                          const [where, area] = splitAddress(a);
-                          return <SelectItem key={a} value={a} description={area || undefined}>{where}</SelectItem>;
-                        })}
-                      </SelectContent>
-                    </Select>
-                    <PlaceInput value={newAddr} near={around} onChange={setNewAddr} onPlace={choosePlace} placeholder="Or search a new address…" />
-                    <FieldDescription>{place ? `Restaurants are offered near ${place.address}.` : "Pick a saved address or search a new one. It must match an address on the host's Swiggy account."}</FieldDescription>
-                  </Field>
-                )}
-                <FieldDescription>{live ? 'The team can pick as soon as it starts, until the cutoff.' : "Starting a new lunch replaces today's demo lunch and clears its picks."}</FieldDescription>
-                <Button size="lg" type="submit" disabled={sending}>{sending ? "Starting…" : "Start the lunch"}</Button>
+                <Field>
+                  <FieldLabel id="addr-label" required>Deliver to</FieldLabel>
+                  {/* Every address already added (a company's saved ones and where earlier food parties went; a host's own earlier places): press one to deliver there. */}
+                  <div id="addr" role="radiogroup" aria-labelledby="addr-label" aria-required="true" tabIndex={-1} className={cn('grid gap-1.5 rounded-xl outline-none', shown.length > 5 && 'max-h-[300px] overflow-y-auto pr-1')}>
+                    {shown.map((a) => {
+                      const [where, area] = splitAddress(a);
+                      const on = live?.personal ? place?.address === a : a === address;
+                      return (
+                        <button
+                          key={a}
+                          type="button"
+                          role="radio"
+                          aria-checked={on}
+                          onClick={() => { const r = recent.find((x) => x.address === a); if (r) chooseRecent(r); else if (!live?.personal) { setAddress(a); setPlace(null); setError(''); } setAdding(false); }}
+                          className={cn('flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring', on ? 'border-ink/60 bg-muted' : 'border-border hover:bg-muted/50')}
+                        >
+                          <Icon name="pin" size={15} className="shrink-0 text-muted-foreground" />
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-medium">{where}</span>
+                            {area && <span className="block truncate text-[13px] text-muted-foreground">{area}</span>}
+                          </span>
+                          <span aria-hidden="true" className={cn('grid size-5 shrink-0 place-items-center rounded-full border', on ? 'border-ink bg-ink text-on-ink' : 'border-input')}>{on && <Icon name="check" size={12} />}</span>
+                        </button>
+                      );
+                    })}
+                    {!shown.length && <p className="rounded-xl border border-dashed border-input p-3 text-[13px] text-muted-foreground">No address yet. Add the first one below.</p>}
+                  </div>
+                  {adding ? (
+                    <div className="grid gap-1.5">
+                      <PlaceInput value={newAddr} near={around} onChange={setNewAddr} onPlace={(p) => { choosePlace(p); setAdding(false); }} placeholder="Search a building or area…" />
+                      <Button type="button" variant="ghost" size="sm" className="w-fit" onClick={() => { setAdding(false); setNewAddr(''); }}>Cancel</Button>
+                    </div>
+                  ) : (
+                    <Button type="button" variant="outline" size="sm" className="w-fit" onClick={() => setAdding(true)}><Icon name="new" size={14} /> Add a new address</Button>
+                  )}
+                {live?.personal && <FieldDescription>{place ? `Restaurants are offered near ${place.address}.` : 'Choose a place; restaurants are offered near it.'}</FieldDescription>}
+                </Field>
+                <FieldDescription>{live ? 'The team can pick as soon as it starts, until the cutoff.' : "Starting a new food party replaces today's demo food party and clears its picks."}</FieldDescription>
+                <Button size="lg" type="submit" disabled={sending}>{sending ? "Starting…" : "Start the food party"}</Button>
                 <p role="alert" className="text-[13px] text-destructive empty:hidden">{error}</p>
               </CardContent>
             </Card>

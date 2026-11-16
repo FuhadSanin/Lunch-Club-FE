@@ -1,8 +1,10 @@
-import { Suspense, lazy, useEffect } from 'react';
+import { Suspense, lazy, useEffect, useLayoutEffect } from 'react';
 import { isDemoPreview } from './auth';
 import { useGoogleUser } from './lib/firebase';
 import { useStore } from './store';
 import { AppSkeleton } from './components/skeletons';
+import { dropPrerender } from './lib/prerender';
+import { releaseStaleScrollLock } from './lib/scroll-lock';
 
 // Two apps in one: the landing page for someone signed out, and the signed-in app (src/Shell.tsx). Each
 // is its own download, so a visitor doesn't fetch the app's screens and a member doesn't fetch the
@@ -42,6 +44,20 @@ export default function App() {
   // Until Firebase has answered, go by the last visit: someone who was signed out sees the landing page at
   // once, without waiting; someone who was signed in sees the app's outline.
   const showApp = known ? signedIn : guessSignedIn();
-  if (!known && showApp) return <AppSkeleton label="Loading Lunch Board" />;
-  return <Suspense fallback={showApp ? <AppSkeleton label="Loading Lunch Board" /> : null}>{showApp ? <SignedIn /> : <Landing />}</Suspense>;
+  // Never leave the page stuck: a dialog that went away without closing must not keep it from scrolling.
+  useEffect(() => {
+    releaseStaleScrollLock();
+    const again = () => releaseStaleScrollLock();
+    window.addEventListener('hashchange', again);
+    window.addEventListener('focus', again);
+    return () => {
+      window.removeEventListener('hashchange', again);
+      window.removeEventListener('focus', again);
+    };
+  }, [showApp]);
+  useLayoutEffect(() => {
+    if (showApp) dropPrerender();
+  }, [showApp]);
+  if (!known && showApp) return <AppSkeleton label="Loading Tiffmate" />;
+  return <Suspense fallback={showApp ? <AppSkeleton label="Loading Tiffmate" /> : null}>{showApp ? <SignedIn /> : <Landing />}</Suspense>;
 }

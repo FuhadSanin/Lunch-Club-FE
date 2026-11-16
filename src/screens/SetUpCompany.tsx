@@ -31,8 +31,8 @@ export function SetUpCompany({ me }: { me: ApiMe }) {
           <Mark size={32} />
           <CardTitle className="mt-4 text-2xl tracking-[-0.03em]">Set up your company</CardTitle>
           <CardDescription>
-            Nobody from <strong className="font-semibold text-foreground">@{domain}</strong> has set up Lunch Board yet. Name your
-            company and you can start lunches; teammates who sign in with an @{domain} address join it.
+            Nobody from <strong className="font-semibold text-foreground">@{domain}</strong> has set up Tiffmate yet. Name your
+            company and you can start food parties; teammates who sign in with an @{domain} address join it.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -49,7 +49,7 @@ export function SetUpCompany({ me }: { me: ApiMe }) {
                 onChange={(e) => { setName(e.target.value); create.reset(); }}
                 className="h-10"
               />
-              <FieldDescription>Your team sees this on every lunch.</FieldDescription>
+              <FieldDescription>Your team sees this on every food party.</FieldDescription>
             </Field>
             <Button size="lg" type="submit" disabled={!name.trim() || create.isPending}>
               {create.isPending ? 'Setting up…' : `Set up ${name.trim() || 'the company'}`}

@@ -29,7 +29,7 @@ export function NotificationsPrompt() {
       <CardContent className="flex flex-wrap items-center gap-3">
         <span className="grid size-9 place-items-center rounded-full bg-muted"><Icon name="bell" size={18} /></span>
         <p className="min-w-0 flex-1 text-sm">
-          <span className="font-medium">Get a ping when people join your party, complete their orders, and when everyone has picked.</span>
+          <span className="font-medium">Get a ping when people join your food party, complete their orders, and when everyone has picked.</span>
           <span className="block text-[13px] text-muted-foreground">Works even when this tab is closed. You can turn it off any time.</span>
         </p>
         <Button size="sm" disabled={push.busy} onClick={() => void push.enable()}>{push.busy ? 'Turning on…' : 'Turn on'}</Button>
@@ -84,8 +84,8 @@ type Kind = { icon: string; tint: string; label: string };
 const KINDS: [RegExp, Kind][] = [
   [/everyone has picked/i, { icon: 'lock', tint: 'bg-brand-soft text-brand', label: 'All picked · lock the picks' }],
   [/completed their order/i, { icon: 'check', tint: 'bg-ok-soft text-ok', label: 'Order complete' }],
-  [/joined your party|joined/i, { icon: 'users', tint: 'bg-[#efe9fe] text-[#6d28d9] dark:bg-[#24183f] dark:text-[#a78bfa]', label: 'Joined your party' }],
-  [/started a lunch|new lunch/i, { icon: 'megaphone', tint: 'bg-[#fff4d6] text-[#a16207] dark:bg-[#2c2208] dark:text-[#f5b301]', label: 'New lunch' }],
+  [/joined your party|joined/i, { icon: 'users', tint: 'bg-[#efe9fe] text-[#6d28d9] dark:bg-[#24183f] dark:text-[#a78bfa]', label: 'Joined your food party' }],
+  [/started a (lunch|party)|new (lunch|party)/i, { icon: 'megaphone', tint: 'bg-[#fff4d6] text-[#a16207] dark:bg-[#2c2208] dark:text-[#f5b301]', label: 'New food party' }],
   [/arrived|delivered/i, { icon: 'bag', tint: 'bg-ok-soft text-ok', label: 'Arrived' }],
   [/ordered|placed|preparing|on its way/i, { icon: 'order', tint: 'bg-brand-soft text-brand', label: 'Ordered' }],
   [/locked|confirm|needs you/i, { icon: 'lock', tint: 'bg-warn-soft text-warn', label: 'Action needed' }],
@@ -234,7 +234,7 @@ export function NotificationsBell({ className }: { className?: string }) {
               <span className="grid size-12 place-items-center rounded-full bg-muted text-muted-foreground"><Icon name="bell" size={22} /></span>
               <p className="text-sm font-medium">{only === 'unread' && all.length ? "You're all caught up" : 'No notifications yet'}</p>
               <p className="max-w-[16rem] text-[13px] text-muted-foreground">
-                {only === 'unread' && all.length ? 'Nothing new since you last looked.' : "You'll see here when people join your party, complete their orders, and when everyone has picked."}
+                {only === 'unread' && all.length ? 'Nothing new since you last looked.' : "You'll see here when people join your food party, complete their orders, and when everyone has picked."}
               </p>
             </div>
           )}

@@ -1,11 +1,11 @@
 ---
 name: print-illustration
-description: Draw a new illustration for Lunch Board in its monochrome print style (ink outlines, flat black/grey/white fills, hand-drawn wobble, white specks), as code in scripts/art/ rendered to transparent PNGs. Use whenever the user asks for an illustration, a drawing, a vector or a picture of people, food or objects for the site or app, or asks to turn a photo into an illustration.
+description: Draw a new illustration for Tiffmate in its monochrome print style (ink outlines, flat black/grey/white fills, hand-drawn wobble, white specks), as code in scripts/art/ rendered to transparent PNGs. Use whenever the user asks for an illustration, a drawing, a vector or a picture of people, food or objects for the site or app, or asks to turn a photo into an illustration.
 ---
 
 # Print illustration
 
-Lunch Board's illustrations look like worn letterpress prints: black ink outlines, flat fills in only
+Tiffmate's illustrations look like worn letterpress prints: black ink outlines, flat fills in only
 black, one grey and white, a slight hand-drawn wobble, and white specks inside every filled area. The
 lunch line (`public/illustrations/lunch-line.png`), its thought bubbles (`public/illustrations/thoughts/`)
 and the tiffin (`public/illustrations/tiffin.png`) are the reference set. A new drawing must sit next
@@ -57,7 +57,7 @@ People face right, side or three-quarter view, feet at `y = 0` and up negative, 
 
 ## How to make one
 
-1. Read the brief and say in one line what the picture shows and how it carries Lunch Board's idea
+1. Read the brief and say in one line what the picture shows and how it carries Tiffmate's idea
    (many tastes, one order). If the user gave a reference image, use its style and composition ideas,
    never trace or copy someone else's artwork.
 2. Create `scripts/art/<name>.mjs`. Import the helpers from `./style.mjs`

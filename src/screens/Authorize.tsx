@@ -10,10 +10,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Skeleton } from '@/components/ui/skeleton';
 
 const CAN = [
-  'Start lunches and share links',
-  'Join lunches and pick dishes',
-  'Lock, confirm and record orders on lunches you host',
-  'See your lunches and notifications',
+  'Start food parties and share links',
+  'Join food parties and pick dishes',
+  'Lock, confirm and record orders on food parties you host',
+  'See your food parties and notifications',
 ];
 const CANNOT = [
   'Change company settings, people, roles or access tokens',
@@ -43,7 +43,7 @@ function Page({ children }: { children: React.ReactNode }) {
       <div className="absolute top-4 right-4"><ThemeToggle /></div>
       <div className="w-full max-w-[480px]">
         <div className="mb-6 flex items-center justify-center gap-2.5 text-[15px] font-semibold tracking-[-0.02em]">
-          <Mark /> Lunch Board
+          <Mark /> Tiffmate
         </div>
         {children}
       </div>
@@ -113,7 +113,7 @@ export default function Authorize({ id }: { id: string }) {
           </CardHeader>
           <CardContent className="flex flex-wrap gap-3">
             {!gone && <Button variant="outline" onClick={() => void request.refetch()}>Try again</Button>}
-            <Button onClick={goToApp}>Go to Lunch Board</Button>
+            <Button onClick={goToApp}>Go to Tiffmate</Button>
           </CardContent>
         </Card>
       </Page>
@@ -126,7 +126,7 @@ export default function Authorize({ id }: { id: string }) {
     <Page>
       <Card aria-labelledby="authorize-h">
         <CardHeader>
-          <CardTitle id="authorize-h" className="text-2xl tracking-[-0.03em]">Connect {client} to Lunch Club</CardTitle>
+          <CardTitle id="authorize-h" className="text-2xl tracking-[-0.03em]">Connect {client} to Tiffmate</CardTitle>
           <CardDescription>
             {me.data ? (
               <>

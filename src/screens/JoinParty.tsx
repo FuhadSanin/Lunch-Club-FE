@@ -34,16 +34,16 @@ export function JoinParty({ invite }: { invite: NonNullable<Live['invite']> }) {
         <div className="grid justify-items-center gap-4 pt-2 text-center">
           <img src="/illustrations/tiffin.webp" alt="" width={96} height={120} className="h-auto w-20 select-none dark:invert" />
           <div className="grid gap-1.5">
-            <DialogTitle className="text-xl tracking-[-0.03em]">You're invited to a lunch party</DialogTitle>
+            <DialogTitle className="text-xl tracking-[-0.03em]">You're invited to a food party</DialogTitle>
             <DialogDescription>
               Join to pick your own food before picks close. Everything goes into one order, and you'll see what you owe.
             </DialogDescription>
           </div>
           <div className="grid w-full grid-cols-2 gap-2">
             <Button variant="outline" size="lg" onClick={() => (window.location.hash = '#/')}>Not now</Button>
-            <Button ref={button} size="lg" autoFocus onClick={() => void join()} disabled={invite.joining}>{invite.joining ? 'Joining…' : 'Join the party'}</Button>
+            <Button ref={button} size="lg" autoFocus onClick={() => void join()} disabled={invite.joining}>{invite.joining ? 'Joining…' : 'Join the food party'}</Button>
           </div>
-          {invite.error && <p role="alert" className="text-[13px] text-destructive">Couldn't join this party. {invite.error}</p>}
+          {invite.error && <p role="alert" className="text-[13px] text-destructive">Couldn't join this food party. {invite.error}</p>}
         </div>
       </DialogContent>
     </Dialog>

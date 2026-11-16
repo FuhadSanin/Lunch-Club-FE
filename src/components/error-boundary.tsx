@@ -20,7 +20,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { error: E
       <div role="alert" className="grid min-h-dvh place-items-center bg-canvas p-6 text-sm">
         <div className="grid max-w-md gap-3 text-center">
           <h1 className="text-lg font-semibold">Something went wrong on this page</h1>
-          <p className="text-muted-foreground">Your picks and the lunch are safe on the server. Reload to carry on.</p>
+          <p className="text-muted-foreground">Your picks and the food party are safe on the server. Reload to carry on.</p>
           <Button className="mx-auto" onClick={() => window.location.reload()}>Reload</Button>
         </div>
       </div>

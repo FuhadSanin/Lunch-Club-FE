@@ -58,7 +58,7 @@ export default function Distribute() {
     const last = done && count + 1 === lunch.picked.length;
     // The glass clink and the violet moment come when the last person is saved as served, not on the click.
     run(p.id, () => dispatch({ type: 'handOut', userId: p.id, done })).then(
-      () => last && celebrate({ x: innerWidth / 2, y: innerHeight / 2, title: "Everyone's served", sub: `All ${lunch.picked.length} people have their lunch.`, tone: 'violet', icon: 'cloche', sound: 'served' }),
+      () => last && celebrate({ x: innerWidth / 2, y: innerHeight / 2, title: "Everyone's served", sub: `All ${lunch.picked.length} people have their food.`, tone: 'violet', icon: 'cloche', sound: 'served' }),
       () => undefined, // the reason is already on screen as a toast
     );
   };

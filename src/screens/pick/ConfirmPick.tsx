@@ -21,7 +21,7 @@ export function ConfirmPick({ confirm, onClose, items, total, note, cutoff, onCo
         {confirm === 'skip' ? (
           <>
             <DialogHeader>
-              <DialogTitle>Skip today's lunch?</DialogTitle>
+              <DialogTitle>Skip today's food party?</DialogTitle>
               <DialogDescription>
                 {items.length ? 'Your cart is cleared, and you' : 'You'} won't be able to pick today unless the host reopens it for you.
               </DialogDescription>

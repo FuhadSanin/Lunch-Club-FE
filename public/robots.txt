@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /api/
 
-Sitemap: https://lunchclubfe.vercel.app/sitemap.xml
+Sitemap: https://tiffmate.vercel.app/sitemap.xml

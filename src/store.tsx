@@ -31,7 +31,7 @@ export type Action =
   | { type: 'arrive'; restaurantId: string; done: boolean }
   | { type: 'finishLunch' }
   | { type: 'check'; key: string; done: boolean }
-  | { type: 'newSession'; cutoff: string; address: string; restaurantIds: string[]; name?: string; lat?: number; lng?: number }
+  | { type: 'newSession'; cutoff: string; address: string; restaurantIds: string[]; localMenuIds?: string[]; name?: string; lat?: number; lng?: number }
   | { type: 'updateOrg'; org: Partial<Org> }
   | { type: 'reset' };
 
@@ -199,7 +199,7 @@ export function useStore() {
 
 // ---------- derived figures (computed from rows, never typed in) ----------
 
-export type CartLine = { dishId: string; name: string; price: number; veg: boolean; qty: number; people: string[] };
+export type CartLine = { dishId: string; name: string; price: number; veg?: boolean; qty: number; people: string[] };
 export type CartGroup = { restaurantId: string; name: string; lines: CartLine[]; dishes: number; total: number };
 
 export function useLunch() {

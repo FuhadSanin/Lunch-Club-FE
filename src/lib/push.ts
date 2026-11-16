@@ -42,7 +42,7 @@ async function listenInForeground() {
     const link = message.fcmOptions?.link ?? (message.data?.link as string | undefined);
     // The bell, and the data the notification is about: the dashboard on a join, the order on a completion.
     refreshForNotification(queryClient, { title, link });
-    toast.info(title ?? 'Lunch Board', {
+    toast.info(title ?? 'Tiffmate', {
       description: body,
       duration: 10000,
       action: link ? { label: 'Open', onClick: () => { window.location.href = link; } } : undefined,
@@ -104,7 +104,7 @@ export function usePush(): PushState {
       }
       await register();
       setEnabled(true);
-      toast.success('Notifications are on', { description: "You'll hear when people join your party, finish their orders, and when everyone has picked." });
+      toast.success('Notifications are on', { description: "You'll hear when people join your food party, finish their orders, and when everyone has picked." });
     } catch (e) {
       toast.error("Couldn't turn notifications on", { description: e instanceof Error ? e.message : 'Try again.' });
     } finally {

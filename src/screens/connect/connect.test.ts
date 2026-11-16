@@ -6,13 +6,13 @@ describe('what an assistant can do', () => {
   it('lists every tool once, under one group', () => {
     const names = ALL_TOOLS.map((t) => t.name);
     expect(new Set(names).size).toBe(names.length);
-    expect(names.length).toBe(23); // the API repo's mcp_server/server.py has 23 tools: change both together
+    expect(names.length).toBe(26); // the API repo's mcp_server/server.py has 26 tools: change both together
     TOOL_GROUPS.forEach((g) => expect(g.tools.length).toBeGreaterThan(0));
   });
 
   it('asks first before anything that is hard to undo', () => {
     const asksFirst = ALL_TOOLS.filter((t) => t.asksFirst).map((t) => t.name);
-    expect(asksFirst.sort()).toEqual(['cancel_lunch', 'confirm_lunch']);
+    expect(asksFirst.sort()).toEqual(['cancel_lunch', 'confirm_lunch', 'delete_local_menu']);
   });
 
   it('describes every tool and prompt in words, not code', () => {

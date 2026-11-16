@@ -7,7 +7,6 @@ import { useLunch, useStore } from './store';
 import { Avatar, Icon, Mark, useHashRoute } from './ui';
 import { Segmented } from './components/ui/segmented';
 import { ThemeToggle } from './components/theme';
-import { Badge } from './components/ui/badge';
 import { Button } from './components/ui/button';
 import { Card } from './components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './components/ui/dialog';
@@ -33,20 +32,21 @@ const Finish = lazy(() => import('./screens/steps/Finish'));
 const NewLunch = lazy(() => import('./screens/NewLunch'));
 const Settings = lazy(() => import('./screens/Settings'));
 const Connect = lazy(() => import('./screens/Connect'));
+const LocalMenus = lazy(() => import('./screens/LocalMenus'));
 const Authorize = lazy(() => import('./screens/Authorize'));
 const preloadScreens = () => void Promise.all([import('./screens/Home'), import('./screens/Pick'), import('./screens/Order'), import('./screens/steps/PlaceOrder'), import('./screens/steps/Collect'), import('./screens/steps/Distribute'), import('./screens/steps/Finish'), import('./screens/NewLunch'), import('./screens/Settings'), import('./screens/Connect')]).catch(() => undefined); // only a head start: a failure shows when the screen is opened
 
 // Everyone: the dashboard and their own pick. Hosts also run the lunch, step by step (src/lib/steps.ts),
 // and have Settings at the bottom.
 const MAIN = [
-  { to: '/', label: "Today's lunch", icon: 'today' },
-  { to: '/pick', label: 'Pick my lunch', icon: 'pick' },
+  { to: '/', label: "Today's food party", icon: 'today' },
+  { to: '/pick', label: 'Pick my food', icon: 'pick' },
 ];
 const routesFor = (role: Role) => [...MAIN.map((n) => n.to), ...(role === 'host' ? [...STEPS.map((s) => s.route), '/settings'] : [])];
 const titleOf = (route: string) =>
   MAIN.find((n) => n.to === route)?.label ??
   STEPS.find((s) => s.route === route)?.label ??
-  (route === '/settings' ? 'Settings' : route === '/connect' ? 'Connect to an AI assistant' : "Today's lunch");
+  (route === '/settings' ? 'Settings' : route === '/connect' ? 'Connect to an AI assistant' : route === '/menus' ? 'Local menu' : "Today's food party");
 
 const ROLE_LABEL: Record<Role, string> = { member: 'Team member', host: 'Host' };
 
@@ -87,7 +87,7 @@ function Shell() {
   // Steps go in order: a step still to come opens the one to do now instead.
   const steps = useLunchSteps();
   // A person with a public email can start their own lunch from anywhere, even while a guest in another's.
-  const allowed = [...routesFor(state.role), ...(live?.personal && live.canHost ? ['/new'] : []), ...(live ? ['/connect'] : [])];
+  const allowed = [...routesFor(state.role), ...(live?.personal && live.canHost ? ['/new'] : []), ...(live ? ['/connect'] : []), ...(live?.canHost ? ['/menus'] : [])];
   const known = allowed.includes(route) ? route : '/';
   const ahead = STEPS.find((s) => s.route === known && !canOpen(s.id, steps.current));
   const current = ahead ? STEPS.find((s) => s.id === steps.current)!.route : known;
@@ -107,12 +107,13 @@ function Shell() {
     case '/finish': screen = <Finish />; break;
     case '/settings': screen = <Settings />; break;
     case '/connect': screen = <Connect />; break;
+    case '/menus': screen = <LocalMenus />; break;
     default: screen = <Home />;
   }
   // With no lunch running (none on the API, or the demo's is complete), today's screens and the
   // steps after "start" have nothing to show yet.
   const noLunch = live ? !live.lunchId : !!state.session.completed;
-  if (noLunch && !['/new', '/settings', '/connect'].includes(current)) screen = <NoLunch canHost={live ? live.canHost : state.role === 'host'} />;
+  if (noLunch && !['/new', '/settings', '/connect', '/menus'].includes(current)) screen = <NoLunch canHost={live ? live.canHost : state.role === 'host'} />;
   // A shared link to a party not joined yet: ask first.
   // (a shared link to a party not joined yet asks first: the JoinParty pop-up below)
 
@@ -252,7 +253,7 @@ function Sidebar({ current, onClose }: { current: string; onClose?: () => void }
       <div className="flex items-center justify-between px-2.5 pb-5">
         <a href="#/" className="flex items-center gap-2.5 text-[15px] font-semibold tracking-[-0.02em]">
           <Mark />
-          Lunch Board
+          Tiffmate
         </a>
         {live && !onClose && <NotificationsBell />}
         {onClose && (
@@ -276,7 +277,7 @@ function Sidebar({ current, onClose }: { current: string; onClose?: () => void }
         </Card>
       )}
 
-      <nav className="grid gap-0.5" aria-label="Your lunch">
+      <nav className="grid gap-0.5" aria-label="Your food party">
         {MAIN.map((n) => link(n.to, current === n.to, (
           <>
             <Icon name={n.icon} className={current === n.to ? 'text-ink' : 'text-mute'} />
@@ -291,13 +292,13 @@ function Sidebar({ current, onClose }: { current: string; onClose?: () => void }
       {live?.personal && live.canHost && !host && link('/new', current === '/new', (
         <>
           <Icon name="today" className={current === '/new' ? 'text-ink' : 'text-mute'} />
-          {party ? 'My party' : 'Start a party'}
+          {party ? 'My food party' : 'Start a food party'}
         </>
       ))}
 
       {host && (
         <nav className="mt-6 grid gap-0.5" aria-labelledby={`${layoutKey}-run`}>
-          <span id={`${layoutKey}-run`} className="px-3 pb-1.5 text-xs font-medium text-mute">Run the lunch</span>
+          <span id={`${layoutKey}-run`} className="px-3 pb-1.5 text-xs font-medium text-mute">Run the food party</span>
           {STEPS.map((s, i) => {
             const p = progress[s.id];
             const st = states[s.id];
@@ -313,6 +314,27 @@ function Sidebar({ current, onClose }: { current: string; onClose?: () => void }
         </nav>
       )}
 
+      {live && (
+        <nav className="mt-5 grid gap-1 rounded-2xl border border-warn/25 bg-card/70 p-1.5 shadow-xs" aria-labelledby={`${layoutKey}-trend`}>
+          <span id={`${layoutKey}-trend`} className="flex min-h-9 items-center gap-2.5 rounded-lg bg-warn-soft px-3 text-sm font-semibold text-ink dark:bg-warn/15">
+            <Icon name="flame" size={16} className="flame-flicker text-warn" /> Trending
+            <span aria-hidden="true" className="ml-auto grid h-5 min-w-5 place-items-center rounded-full bg-warn/20 px-1.5 text-[11px] font-semibold text-warn num">{live.canHost ? 2 : 1}</span>
+          </span>
+          {live.canHost && link('/menus', current === '/menus', (
+            <>
+              <Icon name="store" className={current === '/menus' ? 'text-ink' : 'text-mute'} />
+              Local menu
+            </>
+          ))}
+          {link('/connect', current === '/connect', (
+            <>
+              <Icon name="plug" className={current === '/connect' ? 'text-ink' : 'text-mute'} />
+              <span className="min-w-0 truncate">Connect to an AI assistant</span>
+            </>
+          ))}
+        </nav>
+      )}
+
       {host && (
         <nav className="mt-auto grid gap-0.5 pt-6" aria-label="Settings">
           {link('/settings', current === '/settings', (
@@ -324,19 +346,7 @@ function Sidebar({ current, onClose }: { current: string; onClose?: () => void }
         </nav>
       )}
 
-      {live && (
-        <div className={cn('grid gap-0.5 px-0 pt-2', !host && 'mt-auto')}>
-          {link('/connect', current === '/connect', (
-            <>
-              <Icon name="plug" className={current === '/connect' ? 'text-ink' : 'text-mute'} />
-              <span className="min-w-0 truncate">Connect to an AI assistant</span>
-              {/* Sits on the top edge of the link, so the long label keeps all its room. */}
-              <Badge variant="warning" className="pointer-events-none absolute -top-[15px] -right-1 h-[18px] gap-0.5 border-background px-1.5 text-[10px] font-semibold tracking-[0.06em] uppercase ring-2 ring-background motion-safe:animate-pulse"><Icon name="flame" size={10} />Hot</Badge>
-            </>
-          ))}
-          <div className="px-1.5"><NotificationsToggle /></div>
-        </div>
-      )}
+      {live && <div className={cn('px-1.5 pt-2', !host && 'mt-auto')}><NotificationsToggle /></div>}
 
       <div className={cn("grid gap-4 px-1.5 pt-4", !host && !live && "mt-auto")}>
         {!live && <div className="grid gap-1.5">
@@ -372,9 +382,9 @@ function Sidebar({ current, onClose }: { current: string; onClose?: () => void }
           <Dialog open={leaving} onOpenChange={(o) => !signingOut && setLeaving(o)}>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Sign out of Lunch Board?</DialogTitle>
+                <DialogTitle>Sign out of Tiffmate?</DialogTitle>
                 <DialogDescription>
-                  {live ? "Your picks and today's lunch stay as they are. Sign in again with Google whenever you like." : 'You go back to the landing page. The demo keeps its picks.'}
+                  {live ? "Your picks and today's food party stay as they are. Sign in again with Google whenever you like." : 'You go back to the landing page. The demo keeps its picks.'}
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter>
