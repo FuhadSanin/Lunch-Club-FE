@@ -32,6 +32,7 @@ const Finish = lazy(() => import('./screens/steps/Finish'));
 const NewLunch = lazy(() => import('./screens/NewLunch'));
 const Settings = lazy(() => import('./screens/Settings'));
 const Connect = lazy(() => import('./screens/Connect'));
+const Account = lazy(() => import('./screens/Account'));
 const LocalMenus = lazy(() => import('./screens/LocalMenus'));
 const Authorize = lazy(() => import('./screens/Authorize'));
 const preloadScreens = () => void Promise.all([import('./screens/Home'), import('./screens/Pick'), import('./screens/Order'), import('./screens/steps/PlaceOrder'), import('./screens/steps/Collect'), import('./screens/steps/Distribute'), import('./screens/steps/Finish'), import('./screens/NewLunch'), import('./screens/Settings'), import('./screens/Connect')]).catch(() => undefined); // only a head start: a failure shows when the screen is opened
@@ -46,7 +47,7 @@ const routesFor = (role: Role) => [...MAIN.map((n) => n.to), ...(role === 'host'
 const titleOf = (route: string) =>
   MAIN.find((n) => n.to === route)?.label ??
   STEPS.find((s) => s.route === route)?.label ??
-  (route === '/settings' ? 'Settings' : route === '/connect' ? 'Connect to an AI assistant' : route === '/menus' ? 'Local menu' : "Today's food party");
+  (route === '/settings' ? 'Settings' : route === '/connect' ? 'Connect to an AI assistant' : route === '/account' ? 'Your account' : route === '/menus' ? 'Local menu' : "Today's food party");
 
 const ROLE_LABEL: Record<Role, string> = { member: 'Team member', host: 'Host' };
 
@@ -87,7 +88,7 @@ function Shell() {
   // Steps go in order: a step still to come opens the one to do now instead.
   const steps = useLunchSteps();
   // A person with a public email can start their own lunch from anywhere, even while a guest in another's.
-  const allowed = [...routesFor(state.role), ...(live?.personal && live.canHost ? ['/new'] : []), ...(live ? ['/connect'] : []), ...(live?.canHost ? ['/menus'] : [])];
+  const allowed = [...routesFor(state.role), ...(live?.personal && live.canHost ? ['/new'] : []), ...(live ? ['/connect', '/account'] : []), ...(live?.canHost ? ['/menus'] : [])];
   const known = allowed.includes(route) ? route : '/';
   const ahead = STEPS.find((s) => s.route === known && !canOpen(s.id, steps.current));
   const current = ahead ? STEPS.find((s) => s.id === steps.current)!.route : known;
@@ -107,13 +108,14 @@ function Shell() {
     case '/finish': screen = <Finish />; break;
     case '/settings': screen = <Settings />; break;
     case '/connect': screen = <Connect />; break;
+    case '/account': screen = <Account />; break;
     case '/menus': screen = <LocalMenus />; break;
     default: screen = <Home />;
   }
   // With no lunch running (none on the API, or the demo's is complete), today's screens and the
   // steps after "start" have nothing to show yet.
   const noLunch = live ? !live.lunchId : !!state.session.completed;
-  if (noLunch && !['/new', '/settings', '/connect', '/menus'].includes(current)) screen = <NoLunch canHost={live ? live.canHost : state.role === 'host'} />;
+  if (noLunch && !['/new', '/settings', '/connect', '/menus', '/account'].includes(current)) screen = <NoLunch canHost={live ? live.canHost : state.role === 'host'} />;
   // A shared link to a party not joined yet: ask first.
   // (a shared link to a party not joined yet asks first: the JoinParty pop-up below)
 
@@ -346,7 +348,18 @@ function Sidebar({ current, onClose }: { current: string; onClose?: () => void }
         </nav>
       )}
 
-      {live && <div className={cn('px-1.5 pt-2', !host && 'mt-auto')}><NotificationsToggle /></div>}
+      {live && (
+        <nav className={cn('grid gap-0.5 pt-2', !host && 'mt-auto')} aria-label="Account">
+          {link('/account', current === '/account', (
+            <>
+              <Icon name="users" className={current === '/account' ? 'text-ink' : 'text-mute'} />
+              Your account
+            </>
+          ))}
+        </nav>
+      )}
+
+      {live && <div className="px-1.5 pt-2"><NotificationsToggle /></div>}
 
       <div className={cn("grid gap-4 px-1.5 pt-4", !host && !live && "mt-auto")}>
         {!live && <div className="grid gap-1.5">

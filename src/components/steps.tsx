@@ -6,6 +6,7 @@ import { Icon } from '@/ui';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { PageTitle } from '@/components/PageTitle';
+import { PoweredBySwiggy } from '@/components/PoweredBySwiggy';
 import { cn, spring } from '@/lib/cn';
 
 // Where today's lunch is in its seven steps.
@@ -129,6 +130,7 @@ export function StepPage({ id, title, sub, actions, children }: { id: StepId; ti
             <span key={s.id} aria-disabled="true" title={`Finish "${STEPS[at].label}" first`} className={cn(cls, 'cursor-not-allowed opacity-60')}>{chip}</span>
           );
         })}
+        <PoweredBySwiggy className="sm:ml-auto" />
       </div>
       <PageTitle title={title ?? `${n + 1}. ${step.label}`} sub={sub ?? step.hint} actions={early ? undefined : actions} />
       {early ? (

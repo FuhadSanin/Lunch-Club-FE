@@ -1,8 +1,74 @@
-# Tiffmate — web app (demo build)
+# Tiffmate
 
-The React + TypeScript front end from the architecture doc: team members pick lunch from several
-restaurants, the host confirms one Swiggy order, and everyone watches a live board. It runs in the
-browser on the Django API (`../lunch-backend`) when it answers, and on sample data when it doesn't.
+**Group food ordering for teams, friends and families.** A host starts a food party and shares one link, everyone
+picks their own dish, the host places the order, and everyone sees what they owe. Live at
+<https://tiffmate.vercel.app>.
+
+This repo is the web app (React + TypeScript). The API and the AI-assistant (MCP) server are in the sibling repo
+`lunch-backend`.
+
+## Why this app
+
+Ordering food for a group is a mess: one phone goes round the table, orders are copied into a chat, someone changes
+their mind after the order is placed, and nobody remembers who owes what. Swiggy's own group order covers one
+restaurant, and everyone has to agree on it. Tiffmate fixes the coordination, not the food:
+
+- **One link, many restaurants.** Everyone picks from any Swiggy restaurant near the delivery address, so a team
+  of 20 does not have to agree on one place.
+- **The host stays in control.** Picks lock at a cutoff, the host sees each restaurant's dishes and cooking
+  notes, and places the order. Every bag has a name, and everyone sees what they owe.
+- **Local menus.** A host can keep the menu of a place that is not on Swiggy, by hand or by sending a photo to
+  an AI assistant, and offer it in the same food party.
+- **Works with your AI chat.** ChatGPT, Claude and any assistant that supports MCP can start a food party from a
+  photo of a menu, show who picked what, lock the picks and more. The person signs the assistant in and stays in
+  charge.
+- **Not only offices.** A personal food party works for a birthday dinner, a hostel night or a family Sunday.
+
+## Where it stands (17 Nov 2026)
+
+| Part | State |
+| --- | --- |
+| Food parties, picks, lock, review, collect, "who owes what", live board | Working |
+| Sign-in (Google), roles (host and member), company and personal parties | Working |
+| Local menus, history receipts, AI assistant (MCP) with 26 tools | Working |
+| Privacy notice, terms, delete my account | Working (`/privacy`, `/terms`, Your account) |
+| **Placing the Swiggy order** | **By hand today.** The app lists each restaurant's dishes and cooking note, the host adds them in Swiggy and marks the order placed. Automatic ordering is built but switched off (`src/lib/features.ts`) |
+| Restaurant and menu data | Read from Swiggy's public web endpoints, which are unofficial. To be **replaced by Swiggy's official MCP** |
+| Swiggy Builders Club | Not applied yet. See below |
+
+## Swiggy Builders Club: what is left
+
+Swiggy's programme is for apps that use its official Food MCP, so the unofficial Swiggy code has to go before
+applying honestly. The full checklist, with what is done and what needs a person, is
+`docs/swiggy-builders-club.md` in the `lunch-backend` repo. In short:
+
+1. Send the questions in [docs/swiggy-builders-email.md](docs/swiggy-builders-email.md) to builders@swiggy.in
+   (the Rs 1000 cart cap, staging access, a fixed IP, data location, the logo).
+2. Get Swiggy's own logo files and replace `public/illustrations/swiggy.webp` (the one here came from a logo
+   website, and Swiggy asks for its supplied artwork and "Powered by Swiggy").
+3. Run a small real pilot with one team.
+4. Apply, then build the official-MCP connection in staging (the host connects their own Swiggy account; the
+   cart, the confirmation and the order go through Swiggy's tools).
+5. Move the database to Singapore (`lunch-backend/docs/database-migration.md`) before live Swiggy data is stored.
+6. Record the demo video once it all works: [docs/demo-video.md](docs/demo-video.md).
+
+## Demo video
+
+- **The product film** (2 min): <https://tiffmate.vercel.app/promo/story.mp4>. The AI-assistant film:
+  <https://tiffmate.vercel.app/promo/mcp.mp4>. Both play on the landing page.
+- **The walkthrough for Swiggy**: not recorded yet, on purpose. It has to show the official Swiggy flow, so it is
+  recorded after step 4 above. The shot list is in [docs/demo-video.md](docs/demo-video.md). Put its link here
+  when it exists.
+
+## Docs
+
+- [docs/swiggy-builders-email.md](docs/swiggy-builders-email.md): the email to Swiggy, drafted.
+- [docs/demo-video.md](docs/demo-video.md): what the Swiggy demo video must show.
+- [docs/connect-ai-assistant.md](docs/connect-ai-assistant.md): how a person connects ChatGPT, Claude or another assistant.
+- [docs/credits.md](docs/credits.md): licences and credits.
+- [docs/architecture-design.pdf](docs/architecture-design.pdf): the original architecture design.
+- The marketing material (the films, Instagram reels, LinkedIn banner and the illustration scripts) lives outside
+  this repo, in `~/Downloads/tiffmate-marketing/`.
 
 ## Run it
 
@@ -160,11 +226,11 @@ sliding pill to shadcn's ToggleGroup and Tabs. Signed out, the app opens on the 
   (typical, not copied from Swiggy) in `src/data/menus.ts`; today's demo lunch offers four of them with Veg Meals
   By Lunchbox.
 - The lunch line (`public/illustrations/lunch-line.png`), its thought bubbles (`public/illustrations/thoughts/`)
-  and the tiffin (`public/illustrations/tiffin.png`) are drawn in code in `scripts/art/`, with the shared
-  print style in `scripts/art/style.mjs`. Edit a drawing there and run `npm run art` (needs Google Chrome)
-  to redraw the PNGs. The bubbles follow today's picks; the positions in `src/landing/Tastes.tsx` match
-  the scene in the script. The project skill `.claude/skills/print-illustration` describes the style
-  and how to draw new illustrations in it.
+  and the tiffin (`public/illustrations/tiffin.png`) were drawn in code. That code, the print-illustration skill,
+  the promo films, the Instagram reels and the LinkedIn banner now live outside this repo, in
+  `~/Downloads/tiffmate-marketing/` (see its README). To redraw a picture, run its script there and copy the
+  PNG back into `public/illustrations/`. The bubbles follow today's picks; the positions in
+  `src/landing/Tastes.tsx` match the scene in the script.
 - **Search and sharing** (`index.html`, `vite.config.ts`, `public/`). The built page carries its own SEO in its HTML: a title and
   description, canonical and hreflang, Open Graph and Twitter tags with a 1200 x 630 image (`public/og.png`), JSON-LD
   (WebSite, Organization, WebApplication with its features, two VideoObjects, and the FAQ from `src/landing/faq-data.ts`), icons and
@@ -177,10 +243,8 @@ sliding pill to shadcn's ToggleGroup and Tabs. Signed out, the app opens on the 
   each dish's name and price) in red. Start party has a Local menu section to offer them; the menu travels with the
   party, so everyone sees the same dishes, and picking one shows a Local menu badge. Pictures are shrunk in the browser
   (`src/lib/image.ts`) and kept with the menu.
-- **The MCP film** (`promo/mcp.html`): what you can do when an AI chat is connected, with one example (friends at a
-  restaurant photograph the menu, the chat starts a food party, the link goes round). `node promo/build-mcp.mjs` records
-  the narration and writes the timeline, `node promo/audio/mix-mcp.mjs` mixes the sound, `node promo/capture.mjs mcp.html
-  <dir>` renders the frames; credits for the photos are in `docs/credits.md`.
+- **The films** on the landing page (`public/promo/story.mp4` and `mcp.mp4`, with posters) are made in
+  `~/Downloads/tiffmate-marketing/promo/` (see its README); credits for the photos are in `docs/credits.md`.
 - **Connect to an AI assistant** (a how-to-use guide for people is in `docs/connect-ai-assistant.md`; code in `src/screens/Connect.tsx`, parts in `src/screens/connect/`). There is one way to
   connect: the assistant signs in (it opens `#/authorize/<id>`, the person presses Allow), so there are no tokens
   to make or copy. The page shows the three steps, the assistants that are connected (Disconnect ends the access

@@ -1,9 +1,10 @@
+import { PoweredBySwiggy } from '@/components/PoweredBySwiggy';
 // A full-width strip along the bottom of the first screen, like a row of customer logos: hairlines above
 // and below, the two ways to order centred with a hairline between them. It stands still.
 
-// Black in light mode, white in dark, like the rest of the page: the logo's orange is flattened to ink.
+// Swiggy's logo as supplied, with its attribution; never recoloured (see PoweredBySwiggy).
 function Swiggy() {
-  return <img src="/illustrations/swiggy.webp" alt="Swiggy" width={1184} height={345} className="h-5 w-auto select-none brightness-0 dark:invert" />;
+  return <PoweredBySwiggy />;
 }
 
 // The built-in menu, set as a wordmark to stand beside Swiggy's: a solid mark (a food cloche, in the page's ink

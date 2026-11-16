@@ -251,6 +251,8 @@ function Footer({ onStart }: { onStart: () => void }) {
             {LINKS.map((l) => (
               <li key={l.href}><a href={l.href} className="hover:text-ink">{l.label}</a></li>
             ))}
+            <li><a href="/privacy" className="hover:text-ink">Privacy</a></li>
+            <li><a href="/terms" className="hover:text-ink">Terms</a></li>
             <li><Button variant="link" onClick={onStart} className="h-auto p-0 font-normal text-body hover:text-ink">Sign in</Button></li>
           </ul>
         </div>

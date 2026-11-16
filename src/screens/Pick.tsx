@@ -1,3 +1,4 @@
+import { PoweredBySwiggy } from '@/components/PoweredBySwiggy';
 import { AnimatePresence } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -187,12 +188,15 @@ export default function PickScreen() {
 
   return (
     <>
-      {where && (
-        <div className="mb-3 inline-flex max-w-full items-center gap-2 rounded-full bg-muted px-3 py-1.5 text-[13px] text-muted-foreground">
-          <Icon name="pin" size={14} />
-          <span className="truncate">Restaurants near <span className="font-medium text-foreground">{where}</span></span>
-        </div>
-      )}
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        {where ? (
+          <div className="inline-flex max-w-full items-center gap-2 rounded-full bg-muted px-3 py-1.5 text-[13px] text-muted-foreground">
+            <Icon name="pin" size={14} />
+            <span className="truncate">Restaurants near <span className="font-medium text-foreground">{where}</span></span>
+          </div>
+        ) : <span />}
+        <PoweredBySwiggy />
+      </div>
       <PageTitle
         title="Pick my food"
         sub={

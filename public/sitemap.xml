@@ -23,4 +23,16 @@
       <video:publication_date>2026-11-16</video:publication_date>
     </video:video>
   </url>
+  <url>
+    <loc>https://tiffmate.vercel.app/privacy</loc>
+    <lastmod>2026-11-17</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://tiffmate.vercel.app/terms</loc>
+    <lastmod>2026-11-17</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
 </urlset>

@@ -31,7 +31,7 @@ const LAST = STEPS.length - 1;
 const BODY: Record<StepId, (c: Ctx) => string> = {
   start: () => 'The host offers the restaurants near the office, or chooses them, and sets the cutoff. One link goes out to the team.',
   review: (c) => `Picks arrive on the live board, and people can change their mind until ${c.cutoff}. The host sees what everyone picked, then locks the picks so the cart stays as it is.`,
-  order: () => 'The host confirms once. The Swiggy bot adds every restaurant to one cart, checks the total against the board and places the order, cash on delivery.',
+  order: () => "The host confirms once. Each restaurant's dishes and cooking notes are listed, so the host can add them to Swiggy and place the order. Automatic ordering is coming, once Swiggy approves it.",
   collect: () => 'The food comes in one restaurant at a time. The host checks each bag against what was ordered and marks it as arrived.',
   distribute: () => "Each person's card shows exactly what they ordered, so the right bag goes to the right person. The host ticks them off as they collect.",
   finish: () => 'With everyone served, the host closes the food party so the next one can start. Then everyone eats.',
@@ -442,8 +442,8 @@ function SceneReview({ ctx, onDone }: SceneProps) {
   );
 }
 
-// 3. Place order: the host confirms, then the Swiggy bot adds each restaurant to the cart, checks the
-// total and checks out.
+// 3. Place order: the host confirms. This scene shows automatic ordering (the order bot), which is switched
+// off until Swiggy approves it; today the host places each order by hand, and the caption says so.
 function SceneOrder({ ctx, onDone }: SceneProps) {
   const reduce = useReducedMotion();
   const [confirmed, setConfirmed] = useState(!!reduce);
@@ -470,6 +470,7 @@ function SceneOrder({ ctx, onDone }: SceneProps) {
           </li>
         ))}
       </ul>
+      <p className="mt-3 text-[12px] text-muted-foreground">A preview of automatic ordering, coming once Swiggy approves it. Today the host places each order in Swiggy.</p>
       <div className="mt-4 min-h-[60px]">
         {confirmed ? (
           <ol className="grid gap-1.5 border-t border-dashed pt-3">

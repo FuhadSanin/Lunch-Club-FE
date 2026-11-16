@@ -3,7 +3,7 @@
 Not shown on the site, kept here so the licences are on record.
 
 - Typeface: Geist (SIL Open Font License).
-- Illustrations: drawn for Tiffmate (`scripts/art/`).
+- Illustrations: drawn for Tiffmate (`scripts/art/`, now in `~/Downloads/tiffmate-marketing/`).
 - Restaurant photos from Wikimedia Commons:
   - KFC: "Looking down into KFC bucket of fried chicken (34956588243)" by Willis Lam, CC BY-SA 2.0.
   - Burger King: "WHOPPER with Cheese, at Burger King (2014.05.04)" by Lombroso, CC BY-SA 3.0.
@@ -15,5 +15,5 @@ Not shown on the site, kept here so the licences are on record.
 Creative Commons licences ask for attribution where the photos are shown. If a photo stays on a public page,
 credit it there (for example on a /credits page).
 
-- AI chat logos in the MCP film (`promo/art/ai/`): the simple-icons project's SVG files (CC0). The marks belong to
+- AI chat logos in the MCP film (`promo/art/ai/` in `~/Downloads/tiffmate-marketing/`): the simple-icons project's SVG files (CC0). The marks belong to
   OpenAI, Anthropic, Google, Perplexity and GitHub, and are shown only to say Tiffmate works with their chats.
