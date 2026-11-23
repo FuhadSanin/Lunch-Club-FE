@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'motion/react';
-import { Suspense, lazy, useEffect, useState, type ReactNode } from 'react';
+import { Suspense, lazy, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Role } from '@/model';
 import { personById } from '@/data/people';
 import { useSignOut } from './auth';
@@ -18,6 +18,7 @@ import { LiveStore } from './live';
 import { JoinParty } from './screens/JoinParty';
 import { ActivePartyCard, useActiveParty } from './components/party-card';
 import { NoLunch } from './screens/NoLunch';
+import { useRunningLunches } from './screens/ExistingLunches';
 import { PageSkeleton } from './components/skeletons';
 import { NotificationSync, NotificationsBell, NotificationsToggle } from './components/Notifications';
 
@@ -90,6 +91,19 @@ function Shell() {
   // A person with a public email can start their own lunch from anywhere, even while a guest in another's.
   const allowed = [...routesFor(state.role), ...(live?.personal && live.canHost ? ['/new'] : []), ...(live ? ['/connect', '/account'] : []), ...(live?.canHost ? ['/menus'] : [])];
   const known = allowed.includes(route) ? route : '/';
+
+  // Signing in with nothing running opens "Start a food party", once: the person came to start one. A guest
+  // (who can't host) and anyone with a food party running keep the home screen, and so does anyone who
+  // moves around afterwards.
+  const { running, pending } = useRunningLunches();
+  const party = useActiveParty();
+  const landed = useRef(false);
+  const nothingRunning = live ? (live.personal ? !party : !live.lunchId && running.length === 0) : false;
+  useEffect(() => {
+    if (landed.current || !live || pending) return;
+    landed.current = true;
+    if (route === '/' && nothingRunning && allowed.includes('/new')) window.location.replace('#/new');
+  });
   const ahead = STEPS.find((s) => s.route === known && !canOpen(s.id, steps.current));
   const current = ahead ? STEPS.find((s) => s.id === steps.current)!.route : known;
   useEffect(() => {
